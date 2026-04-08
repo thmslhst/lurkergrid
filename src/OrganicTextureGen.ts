@@ -56,32 +56,34 @@ export class OrganicTextureGen {
   private samplePixel(u: number, v: number, variant: OrgVariant): [number, number, number] {
 
     if (variant === 'cellular') {
-      // Soft layered clouds — cool blue-white palette
+      // Overcast fog / rain-grey atmosphere — muted cool slate
       const sc = 3.2;
       const f = this.fbm(u * sc, v * sc, 7);
-      const t = clamp01(Math.pow(f, 0.75));
+      const d = this.fbm(u * sc * 2.3 + 1.7, v * sc * 2.3 + 3.1, 4) * 0.22;
+      const t = clamp01(Math.pow(f * 0.85 + d, 0.82));
       return [
-        Math.floor(lerp(8,   210, Math.pow(t, 1.1))),
-        Math.floor(lerp(14,  230, Math.pow(t, 0.85))),
-        Math.floor(lerp(35,  255, Math.pow(t, 0.70))),
+        Math.floor(lerp(10, 148, Math.pow(t, 1.00))),
+        Math.floor(lerp(13, 158, Math.pow(t, 0.95))),
+        Math.floor(lerp(20, 172, Math.pow(t, 0.88))),
       ];
     }
 
     if (variant === 'veins') {
-      // Domain-warped cumulus — warm amber/cream palette
+      // Amber resin / dark walnut grain — domain-warped warm earth tones
       const sc = 4.0;
-      const wx = this.fbm(u * sc + 0.3, v * sc + 0.7, 4) * 2.0;
-      const wy = this.fbm(u * sc + 5.1, v * sc + 1.9, 4) * 2.0;
+      const wx = this.fbm(u * sc + 0.3, v * sc + 0.7, 4) * 2.2;
+      const wy = this.fbm(u * sc + 5.1, v * sc + 1.9, 4) * 2.2;
       const f  = this.fbm(u * sc + wx, v * sc + wy, 7);
-      const t  = clamp01(Math.pow(f, 0.80));
+      const cx = this.fbm(u * sc * 1.8 + 2.3, v * sc * 1.8 + 0.9, 3) * 0.18;
+      const t  = clamp01(Math.pow(f * 0.88 + cx, 0.85));
       return [
-        Math.floor(lerp(20,  255, Math.pow(t, 0.90))),
-        Math.floor(lerp(10,  210, Math.pow(t, 1.10))),
-        Math.floor(lerp(2,   100, Math.pow(t, 1.80))),
+        Math.floor(lerp(18, 175, Math.pow(t, 0.88))),
+        Math.floor(lerp(12, 132, Math.pow(t, 1.05))),
+        Math.floor(lerp(6,  62,  Math.pow(t, 1.65))),
       ];
     }
 
-    // membrane: Voronoi cellular artifact — green/yellow/red palette
+    // membrane: Voronoi cellular — natural stone / lichen palette
     const sc = 6.5;
     const cx = u * sc, cy = v * sc;
     const xi = Math.floor(cx), yi = Math.floor(cy);
@@ -96,16 +98,15 @@ export class OrganicTextureGen {
         else if (dist < d2) { d2 = dist; }
       }
     }
-    // edge sharpness + cell interior blended for artifact texture
-    const edge = clamp01((d2 - d1) * 4.0);
-    const cell = clamp01(d1 * 1.8);
-    // high-freq hash layer adds pixel-level noise on cell interiors
-    const hash = this.h(Math.floor(cx * 3), Math.floor(cy * 3)) * 0.18;
-    const t = clamp01(edge * 0.5 + cell * 0.35 + hash * 0.15);
-    // red → yellow → green
-    const r = t < 0.5 ? lerp(210, 230, t * 2)      : lerp(230, 15,  (t - 0.5) * 2);
-    const g = t < 0.5 ? lerp(15,  210, t * 2)      : lerp(210, 190, (t - 0.5) * 2);
-    const b = t < 0.5 ? lerp(10,  10,  t * 2)      : lerp(10,  30,  (t - 0.5) * 2);
+    const edge   = clamp01((d2 - d1) * 4.0);
+    const cell   = clamp01(d1 * 1.8);
+    const detail = this.fbm(u * 8.5 + 1.1, v * 8.5 + 2.7, 4) * 0.18;
+    const hash   = this.h(Math.floor(cx * 3), Math.floor(cy * 3)) * 0.12;
+    const t = clamp01(edge * 0.45 + cell * 0.30 + detail * 0.15 + hash * 0.10);
+    // deep slate-green → dusty olive stone → pale mineral cream
+    const r = t < 0.5 ? lerp(28,  105, t * 2)       : lerp(105, 185, (t - 0.5) * 2);
+    const g = t < 0.5 ? lerp(48,  98,  t * 2)       : lerp(98,  168, (t - 0.5) * 2);
+    const b = t < 0.5 ? lerp(38,  72,  t * 2)       : lerp(72,  125, (t - 0.5) * 2);
     return [Math.floor(r), Math.floor(g), Math.floor(b)];
   }
 
