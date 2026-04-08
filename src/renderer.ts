@@ -174,17 +174,12 @@ export class Renderer {
     pass.setBindGroup(0, this.sharedBindGroup);
     for (const node of scene.nodes) node.drawFaces(pass);
 
-    // 3 — Grid lines (static, drawn before node wireframes, no depth write needed)
+    // 3 — Grid lines (static, drawn before node faces, no depth write needed)
     if (gridNode) {
       pass.setPipeline(this.wirePipeline);
       pass.setBindGroup(0, this.sharedBindGroup);
       gridNode.draw(pass);
     }
-
-    // 4 — Node wireframes (write depth, draw on top of faces)
-    pass.setPipeline(this.wirePipeline);
-    pass.setBindGroup(0, this.sharedBindGroup);
-    for (const node of scene.nodes) node.draw(pass);
 
     pass.end();
     this.device.queue.submit([encoder.finish()]);

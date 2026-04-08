@@ -58,12 +58,12 @@ fn fs(@builtin(position) fragCoord : vec4<f32>) -> @location(0) vec4<f32> {
   let c  = clamp(pow(f, 0.85), 0.0, 1.0);
   let c2 = c * c;
 
-  // Deep indigo → teal palette — dark enough that gray nodes stay legible
+  // Dark red → olive → deep green palette — mirrors node color grade
   let col = mix(
-    vec3<f32>(0.01, 0.01, 0.04),   // void black-blue
+    vec3<f32>(0.22, 0.02, 0.01),   // void red
     mix(
-      vec3<f32>(0.03, 0.06, 0.14), // deep indigo
-      vec3<f32>(0.07, 0.14, 0.24), // dark teal highlight
+      vec3<f32>(0.18, 0.07, 0.01), // dark russet
+      vec3<f32>(0.07, 0.22, 0.04), // dark olive-green
       c,
     ),
     c2,

@@ -47,13 +47,16 @@ async function main(): Promise<void> {
   });
   document.body.appendChild(dbgCanvas);
   const ctx2d = dbgCanvas.getContext('2d')!;
-  const pixels = new OrganicTextureGen(PAGE_SEED).render(256, 'cellular');
-  ctx2d.putImageData(new ImageData(new Uint8ClampedArray(pixels.buffer), 256, 256), 0, 0);
-  ctx2d.fillStyle = 'rgba(0,0,0,0.55)';
-  ctx2d.fillRect(0, 0, 256, 20);
-  ctx2d.fillStyle = 'rgba(255,255,255,0.85)';
-  ctx2d.font = '11px monospace';
-  ctx2d.fillText('texture 1/1 · membrane · 256²', 6, 14);
+  function redrawDbg(): void {
+    const pixels = new OrganicTextureGen(PAGE_SEED).render(256, 'membrane');
+    ctx2d.putImageData(new ImageData(new Uint8ClampedArray(pixels.buffer), 256, 256), 0, 0);
+    ctx2d.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx2d.fillRect(0, 0, 256, 20);
+    ctx2d.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx2d.font = '11px monospace';
+    ctx2d.fillText('texture 1/1 · membrane · 256²', 6, 14);
+  }
+  redrawDbg();
   // ─────────────────────────────────────────────────────────────────────────
 
   // ── Grid — positions derived from camera frustum at z = 0 ────────────────

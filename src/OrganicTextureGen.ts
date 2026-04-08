@@ -81,16 +81,32 @@ export class OrganicTextureGen {
       ];
     }
 
-    // membrane: ridge-layered nebula — deep teal / indigo palette
-    const sc = 3.5;
-    const f1 = this.fbm(u * sc,       v * sc,       6);
-    const f2 = this.fbm(u * sc * 1.9 + f1 * 1.2, v * sc * 1.9 + f1 * 0.7, 5);
-    const t  = clamp01(f1 * 0.55 + f2 * 0.45);
-    return [
-      Math.floor(lerp(4,   80,  Math.pow(t, 1.50))),
-      Math.floor(lerp(10,  200, Math.pow(t, 0.80))),
-      Math.floor(lerp(25,  255, Math.pow(t, 0.60))),
-    ];
+    // membrane: Voronoi cellular artifact — green/yellow/red palette
+    const sc = 6.5;
+    const cx = u * sc, cy = v * sc;
+    const xi = Math.floor(cx), yi = Math.floor(cy);
+    let d1 = 999, d2 = 999;
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const nx = xi + dx, ny = yi + dy;
+        const px = nx + this.h(nx, ny);
+        const py = ny + this.h(nx + 53, ny + 31);
+        const dist = Math.hypot(cx - px, cy - py);
+        if (dist < d1) { d2 = d1; d1 = dist; }
+        else if (dist < d2) { d2 = dist; }
+      }
+    }
+    // edge sharpness + cell interior blended for artifact texture
+    const edge = clamp01((d2 - d1) * 4.0);
+    const cell = clamp01(d1 * 1.8);
+    // high-freq hash layer adds pixel-level noise on cell interiors
+    const hash = this.h(Math.floor(cx * 3), Math.floor(cy * 3)) * 0.18;
+    const t = clamp01(edge * 0.5 + cell * 0.35 + hash * 0.15);
+    // red → yellow → green
+    const r = t < 0.5 ? lerp(210, 230, t * 2)      : lerp(230, 15,  (t - 0.5) * 2);
+    const g = t < 0.5 ? lerp(15,  210, t * 2)      : lerp(210, 190, (t - 0.5) * 2);
+    const b = t < 0.5 ? lerp(10,  10,  t * 2)      : lerp(10,  30,  (t - 0.5) * 2);
+    return [Math.floor(r), Math.floor(g), Math.floor(b)];
   }
 
   render(size: number, variant: OrgVariant): Uint8Array<ArrayBuffer> {
