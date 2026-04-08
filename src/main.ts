@@ -2,7 +2,7 @@ import { Renderer } from './renderer';
 import { Camera } from './camera';
 import { Scene } from './scene';
 import { Node } from './node';
-import { LurkerModel } from './models/LurkerModel';
+import { CarrierModel } from './models/CarrierModel';
 import { OrganicTextureGen, PAGE_SEED } from './OrganicTextureGen';
 import { gridHomePositions, type GridConfig } from './grid';
 
@@ -26,9 +26,9 @@ async function main(): Promise<void> {
   const renderer = new Renderer();
   await renderer.init(canvas);
 
-  // Four morphologically distinct lurker variants — same hull, divergent appendages.
+  // Four morphologically distinct carrier variants — same hull, divergent filaments.
   const models = [0, 1, 2, 3].map(seed => {
-    const m = new LurkerModel(seed);
+    const m = new CarrierModel(seed);
     m.init(renderer.device);
     m.initFaces(renderer.device, renderer.texBindGroupLayout);
     return m;
@@ -71,7 +71,7 @@ async function main(): Promise<void> {
     fillFactor:   0.78,
   };
 
-  // ── Lurker nodes — snapped to grid cell centres ───────────────────────────
+  // ── Carrier nodes — snapped to grid cell centres ─────────────────────────
   const nodePositions = gridHomePositions(gridCfg);
   const nodes = nodePositions.map((pos, i) => {
     const node = new Node(models[i % models.length], pos, NODE_COLOR, i * 1.7);

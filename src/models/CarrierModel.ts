@@ -1,19 +1,19 @@
-// LurkerModel — an irregular, creature-like form.
-// Asymmetric hull with five animated crystal appendages; body breathes with a slow pulse.
-// Each instance takes a seed that drives distinct limb proportions and cross-section shape.
+// CarrierModel — compact irregular polyhedron with five animated crystal filaments.
+// Asymmetric hull with no preferred axis; each instance takes a seed that drives
+// distinct filament proportions, cross-section shape, and twist rate.
 import { PlaneModel } from './PlaneModel';
 import { OrganicTextureGen, PAGE_SEED, type OrgVariant } from '../OrganicTextureGen';
-import { BODY, BODY_EDGES, BODY_FACES, fillLimbEdges, seg } from './LurkerGeom';
-import { fillLimbFaces, makeLimbVariation, type LimbVariation } from './LurkerLimbFaces';
+import { BODY, BODY_EDGES, BODY_FACES, fillFilamentEdges, seg } from './CarrierGeom';
+import { fillFilamentFaces, makeEmanationVariation, type EmanationVariation } from './CarrierEmanations';
 
-export class LurkerModel extends PlaneModel {
+export class CarrierModel extends PlaneModel {
   private scratchEdges: Float32Array<ArrayBuffer> | null = null;
   private scratchFaces: Float32Array<ArrayBuffer> | null = null;
-  private readonly variation: LimbVariation;
+  private readonly variation: EmanationVariation;
 
   constructor(readonly seed = 0) {
     super();
-    this.variation = makeLimbVariation(seed);
+    this.variation = makeEmanationVariation(seed);
   }
 
   protected faceTextureVariant(): OrgVariant { return 'membrane'; }
@@ -77,7 +77,7 @@ export class LurkerModel extends PlaneModel {
     for (const [a, b] of BODY_EDGES) {
       seg(out, BODY[a][0], BODY[a][1], BODY[a][2], BODY[b][0], BODY[b][1], BODY[b][2]);
     }
-    fillLimbEdges(t, out, this.variation.scale);
+    fillFilamentEdges(t, out, this.variation.scale);
   }
 
   buildFaces(): Float32Array {
@@ -87,16 +87,15 @@ export class LurkerModel extends PlaneModel {
   }
 
   private fillFaces(t: number, out: number[]): void {
-    // Slow breath: scale oscillates ±1.8% so the hull subtly pulses
+    // Slow pulse: scale oscillates ±1.8%
     const s = 1.0 + Math.sin(t * 0.00080) * 0.018;
     for (const [ai, bi, ci] of BODY_FACES) {
       const A = BODY[ai], B = BODY[bi], C = BODY[ci];
       const uv = (v: number[]): [number, number] => [
         (v[0] + 0.30) / 0.60,
-        (v[1] + 0.35) / 0.90,
+        (v[1] + 0.30) / 0.60,
       ];
       const [uA, vA] = uv(A), [uB, vB] = uv(B), [uC, vC] = uv(C);
-      // Face normal from cross product
       const dx1=B[0]*s-A[0]*s, dy1=B[1]*s-A[1]*s, dz1=B[2]*s-A[2]*s;
       const dx2=C[0]*s-A[0]*s, dy2=C[1]*s-A[1]*s, dz2=C[2]*s-A[2]*s;
       const nx=dy1*dz2-dz1*dy2, ny=dz1*dx2-dx1*dz2, nz=dx1*dy2-dy1*dx2;
@@ -108,6 +107,6 @@ export class LurkerModel extends PlaneModel {
         C[0]*s, C[1]*s, C[2]*s, nnx, nny, nnz, uC, vC,
       );
     }
-    fillLimbFaces(t, out, this.variation);
+    fillFilamentFaces(t, out, this.variation);
   }
 }

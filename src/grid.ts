@@ -30,7 +30,7 @@ function extent(cfg: GridConfig): { halfW: number; halfH: number; stepX: number;
 // ── public API ───────────────────────────────────────────────────────────────
 
 /**
- * Returns (cols × rows) world-space positions — one per lurker node —
+ * Returns (cols × rows) world-space positions — one per carrier node —
  * distributed as a uniform grid centred on the origin at z = 0.
  * Row-major order: left-to-right, bottom-to-top.
  */
