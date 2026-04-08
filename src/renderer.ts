@@ -138,7 +138,7 @@ export class Renderer {
     });
   }
 
-  frame(scene: Scene, camera: Camera, t: number): void {
+  frame(scene: Scene, camera: Camera, t: number, gridNode?: import('./node').Node): void {
     const viewProj = mat4Multiply(camera.projMatrix(), camera.viewMatrix());
     this.device.queue.writeBuffer(this.sharedUniformBuffer, 0, viewProj);
 
@@ -174,7 +174,14 @@ export class Renderer {
     pass.setBindGroup(0, this.sharedBindGroup);
     for (const node of scene.nodes) node.drawFaces(pass);
 
-    // 3 — Node wireframes (write depth, draw on top of faces)
+    // 3 — Grid lines (static, drawn before node wireframes, no depth write needed)
+    if (gridNode) {
+      pass.setPipeline(this.wirePipeline);
+      pass.setBindGroup(0, this.sharedBindGroup);
+      gridNode.draw(pass);
+    }
+
+    // 4 — Node wireframes (write depth, draw on top of faces)
     pass.setPipeline(this.wirePipeline);
     pass.setBindGroup(0, this.sharedBindGroup);
     for (const node of scene.nodes) node.draw(pass);

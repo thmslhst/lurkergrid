@@ -18,7 +18,7 @@ export class Camera {
     this.far       = 100;
     this.radius    = 14;
     this.azimuth   = 0;
-    this.elevation = 0.4;
+    this.elevation = 0;
   }
 
   setAspect(aspect: number): void {
