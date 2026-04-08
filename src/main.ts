@@ -68,10 +68,14 @@ async function main(): Promise<void> {
   const renderer = new Renderer();
   await renderer.init(canvas);
 
-  const model = new LurkerModel();
-  model.init(renderer.device);
-  model.initFaces(renderer.device, renderer.texBindGroupLayout);
-  renderer.connTextureBindGroup = model.faceBindGroup;
+  // Four morphologically distinct lurker variants — same hull, divergent appendages.
+  const models = [0, 1, 2, 3].map(seed => {
+    const m = new LurkerModel(seed);
+    m.init(renderer.device);
+    m.initFaces(renderer.device, renderer.texBindGroupLayout);
+    return m;
+  });
+  renderer.connTextureBindGroup = models[0].faceBindGroup;
 
   // ── Debug: 2D canvas overlay showing the generated texture ──────────────
   const dbgCanvas = document.createElement('canvas');
@@ -95,7 +99,7 @@ async function main(): Promise<void> {
   // ─────────────────────────────────────────────────────────────────────────
 
   const nodes = NODES.map((pos, i) => {
-    const node = new Node(model, pos, COLOR, i * 1.7);
+    const node = new Node(models[i % models.length], pos, COLOR, i * 1.7);
     node.init(renderer.device, renderer.nodeBindGroupLayout);
     return node;
   });
@@ -116,7 +120,7 @@ async function main(): Promise<void> {
     prev = now;
     camera.tick(dt);
     scene.tick(dt, now);
-    model.tick(renderer.device, now);
+    for (const m of models) m.tick(renderer.device, now);
     renderer.frame(scene, camera, now);
     requestAnimationFrame(loop);
   }

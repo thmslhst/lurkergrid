@@ -107,7 +107,7 @@ export function seg(
   out.push(ax, ay, az, bx, by, bz);
 }
 
-export function fillLimbEdges(t: number, out: number[]): void {
+export function fillLimbEdges(t: number, out: number[], scale = 1.0): void {
   for (const limb of LIMBS) {
     const base = BODY[limb.base];
     const sway = Math.sin(t * limb.swaySpeed + limb.swayPhase);
@@ -119,9 +119,9 @@ export function fillLimbEdges(t: number, out: number[]): void {
       const frac = (j + 1) / n;
       const sw = sway * limb.swayAmp * frac;
       pts.push([
-        base[0] + rel[0] + limb.swayAxis[0] * sw,
-        base[1] + rel[1] + limb.swayAxis[1] * sw,
-        base[2] + rel[2] + limb.swayAxis[2] * sw,
+        base[0] + rel[0] * scale + limb.swayAxis[0] * sw,
+        base[1] + rel[1] * scale + limb.swayAxis[1] * sw,
+        base[2] + rel[2] * scale + limb.swayAxis[2] * sw,
       ]);
     }
     for (let i = 0; i + 1 < pts.length; i++) {
@@ -133,9 +133,9 @@ export function fillLimbEdges(t: number, out: number[]): void {
       const sw = sway * limb.swayAmp;
       for (const frel of limb.fork) {
         seg(out, last[0], last[1], last[2],
-          base[0] + frel[0] + limb.swayAxis[0] * sw,
-          base[1] + frel[1] + limb.swayAxis[1] * sw,
-          base[2] + frel[2] + limb.swayAxis[2] * sw,
+          base[0] + frel[0] * scale + limb.swayAxis[0] * sw,
+          base[1] + frel[1] * scale + limb.swayAxis[1] * sw,
+          base[2] + frel[2] * scale + limb.swayAxis[2] * sw,
         );
       }
     }

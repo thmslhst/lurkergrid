@@ -1,15 +1,23 @@
-// LurkerModel — an irregular, creature-like wireframe form.
-// Asymmetric hull with five animated appendages; body breathes with a slow pulse.
+// LurkerModel — an irregular, creature-like form.
+// Asymmetric hull with five animated crystal appendages; body breathes with a slow pulse.
+// Each instance takes a seed that drives distinct limb proportions and cross-section shape.
 import { PlaneModel } from './PlaneModel';
 import { OrganicTextureGen, PAGE_SEED, type OrgVariant } from '../OrganicTextureGen';
 import { BODY, BODY_EDGES, BODY_FACES, fillLimbEdges, seg } from './LurkerGeom';
+import { fillLimbFaces, makeLimbVariation, type LimbVariation } from './LurkerLimbFaces';
 
 export class LurkerModel extends PlaneModel {
-  private scratchEdges: Float32Array | null = null;
-  private scratchFaces: Float32Array | null = null;
+  private scratchEdges: Float32Array<ArrayBuffer> | null = null;
+  private scratchFaces: Float32Array<ArrayBuffer> | null = null;
+  private readonly variation: LimbVariation;
+
+  constructor(readonly seed = 0) {
+    super();
+    this.variation = makeLimbVariation(seed);
+  }
 
   protected faceTextureVariant(): OrgVariant { return 'membrane'; }
-  protected faceTextureSeed():    number      { return PAGE_SEED; }
+  protected faceTextureSeed():    number      { return PAGE_SEED + this.seed * 31337; }
 
   override init(device: GPUDevice): void {
     const data = this.buildEdges();
@@ -69,7 +77,7 @@ export class LurkerModel extends PlaneModel {
     for (const [a, b] of BODY_EDGES) {
       seg(out, BODY[a][0], BODY[a][1], BODY[a][2], BODY[b][0], BODY[b][1], BODY[b][2]);
     }
-    fillLimbEdges(t, out);
+    fillLimbEdges(t, out, this.variation.scale);
   }
 
   buildFaces(): Float32Array {
@@ -83,7 +91,6 @@ export class LurkerModel extends PlaneModel {
     const s = 1.0 + Math.sin(t * 0.00080) * 0.018;
     for (const [ai, bi, ci] of BODY_FACES) {
       const A = BODY[ai], B = BODY[bi], C = BODY[ci];
-      // Planar UV projection — stretched over the hull extents
       const uv = (v: number[]): [number, number] => [
         (v[0] + 0.30) / 0.60,
         (v[1] + 0.35) / 0.90,
@@ -95,5 +102,6 @@ export class LurkerModel extends PlaneModel {
         C[0]*s, C[1]*s, C[2]*s, uC, vC,
       );
     }
+    fillLimbFaces(t, out, this.variation);
   }
 }
