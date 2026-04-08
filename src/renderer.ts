@@ -9,6 +9,7 @@ import { BackgroundPass } from './BackgroundPass';
 
 // 16 nodes → max 120 connections (16*15/2)
 const MAX_CONNECTIONS = 120;
+const MSAA_COUNT = 4;
 
 export class Renderer {
   device!: GPUDevice;
@@ -27,7 +28,9 @@ export class Renderer {
   private connVertexBuffer!: GPUBuffer;
   private connScratch = new Float32Array(MAX_CONNECTIONS * FLOATS_PER_CONN);
   private depthTexture!: GPUTexture;
+  private msaaTexture!:  GPUTexture;
   private canvasFormat!: GPUTextureFormat;
+  private sharedScratch = new Float32Array(20); // 16 viewProj + 4 camPos
 
   async init(canvas: HTMLCanvasElement): Promise<void> {
     const adapter = await navigator.gpu.requestAdapter();
@@ -40,7 +43,7 @@ export class Renderer {
 
     this.initDepth(canvas.width, canvas.height);
     this.initPipelines();
-    this.bg.init(this.device, this.canvasFormat);
+    this.bg.init(this.device, this.canvasFormat, MSAA_COUNT);
     this.bg.resize(canvas.width, canvas.height);
   }
 
@@ -48,14 +51,20 @@ export class Renderer {
 
   private initDepth(w: number, h: number): void {
     this.depthTexture?.destroy();
+    this.msaaTexture?.destroy();
     this.depthTexture = this.device.createTexture({
-      size: [w, h], format: 'depth24plus', usage: GPUTextureUsage.RENDER_ATTACHMENT,
+      size: [w, h], format: 'depth24plus', sampleCount: MSAA_COUNT,
+      usage: GPUTextureUsage.RENDER_ATTACHMENT,
+    });
+    this.msaaTexture = this.device.createTexture({
+      size: [w, h], format: this.canvasFormat, sampleCount: MSAA_COUNT,
+      usage: GPUTextureUsage.RENDER_ATTACHMENT,
     });
   }
 
   private initPipelines(): void {
     const bgl0 = this.device.createBindGroupLayout({
-      entries: [{ binding: 0, visibility: GPUShaderStage.VERTEX, buffer: {} }],
+      entries: [{ binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: {} }],
     });
     this.nodeBindGroupLayout = this.device.createBindGroupLayout({
       entries: [{ binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: {} }],
@@ -66,6 +75,8 @@ export class Renderer {
         { binding: 1, visibility: GPUShaderStage.FRAGMENT, texture:  {} },
       ],
     });
+
+    const msaa = { count: MSAA_COUNT };
 
     // Wireframe pipeline (nodes)
     const wireMod = this.device.createShaderModule({ code: wireframeWGSL });
@@ -78,6 +89,7 @@ export class Renderer {
       fragment: { module: wireMod, entryPoint: 'fs', targets: [{ format: this.canvasFormat }] },
       primitive:    { topology: 'line-list' },
       depthStencil: { format: 'depth24plus', depthWriteEnabled: true, depthCompare: 'less-equal' },
+      multisample:  msaa,
     });
 
     // Connection pipeline — textured, per-vertex alpha, no depth write
@@ -97,9 +109,10 @@ export class Renderer {
       },
       primitive:    { topology: 'line-list' },
       depthStencil: { format: 'depth24plus', depthWriteEnabled: false, depthCompare: 'always' },
+      multisample:  msaa,
     });
 
-    // Textured face pipeline — alpha-blended triangles, depth-tested but no depth write
+    // Textured face pipeline — lit triangles, [pos(3) normal(3) uv(2)] = 8 floats / 32 bytes
     const texMod = this.device.createShaderModule({ code: texturedWGSL });
     this.texPipeline = this.device.createRenderPipeline({
       layout: this.device.createPipelineLayout({
@@ -107,9 +120,10 @@ export class Renderer {
       }),
       vertex: {
         module: texMod, entryPoint: 'vs',
-        buffers: [{ arrayStride: 20, attributes: [
-          { shaderLocation: 0, offset: 0,  format: 'float32x3' },
-          { shaderLocation: 1, offset: 12, format: 'float32x2' },
+        buffers: [{ arrayStride: 32, attributes: [
+          { shaderLocation: 0, offset: 0,  format: 'float32x3' },  // pos
+          { shaderLocation: 1, offset: 12, format: 'float32x3' },  // normal
+          { shaderLocation: 2, offset: 24, format: 'float32x2' },  // uv
         ]}],
       },
       fragment: {
@@ -121,11 +135,12 @@ export class Renderer {
       },
       primitive:    { topology: 'triangle-list', cullMode: 'none' },
       depthStencil: { format: 'depth24plus', depthWriteEnabled: true, depthCompare: 'less' },
+      multisample:  msaa,
     });
 
-    // Shared view/proj uniform
+    // Shared view/proj + camPos uniform — 16 floats viewProj + 4 floats camPos = 80 bytes
     this.sharedUniformBuffer = this.device.createBuffer({
-      size: 64, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+      size: 80, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
     this.sharedBindGroup = this.device.createBindGroup({
       layout: bgl0,
@@ -140,14 +155,21 @@ export class Renderer {
 
   frame(scene: Scene, camera: Camera, t: number, gridNode?: import('./node').Node): void {
     const viewProj = mat4Multiply(camera.projMatrix(), camera.viewMatrix());
-    this.device.queue.writeBuffer(this.sharedUniformBuffer, 0, viewProj);
+    const camPos   = camera.position();
+    this.sharedScratch.set(viewProj, 0);
+    this.sharedScratch[16] = camPos[0];
+    this.sharedScratch[17] = camPos[1];
+    this.sharedScratch[18] = camPos[2];
+    this.sharedScratch[19] = 1.0;
+    this.device.queue.writeBuffer(this.sharedUniformBuffer, 0, this.sharedScratch);
 
     const encoder = this.device.createCommandEncoder();
     const pass = encoder.beginRenderPass({
       colorAttachments: [{
-        view: this.context.getCurrentTexture().createView(),
+        view:          this.msaaTexture.createView(),
+        resolveTarget: this.context.getCurrentTexture().createView(),
         clearValue: { r: 0, g: 0, b: 0, a: 1 },
-        loadOp: 'clear', storeOp: 'store',
+        loadOp: 'clear', storeOp: 'discard',
       }],
       depthStencilAttachment: {
         view: this.depthTexture.createView(),
@@ -169,12 +191,12 @@ export class Renderer {
       pass.draw(connCount * VERTS_PER_CONN);
     }
 
-    // 2 — Textured faces (no depth write, always-pass — depth buffer still clear here)
+    // 2 — Textured lit faces
     pass.setPipeline(this.texPipeline);
     pass.setBindGroup(0, this.sharedBindGroup);
     for (const node of scene.nodes) node.drawFaces(pass);
 
-    // 3 — Grid lines (static, drawn before node faces, no depth write needed)
+    // 3 — Grid lines (static wireframe)
     if (gridNode) {
       pass.setPipeline(this.wirePipeline);
       pass.setBindGroup(0, this.sharedBindGroup);

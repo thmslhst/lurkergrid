@@ -35,7 +35,7 @@ export class LurkerModel extends PlaneModel {
   override initFaces(device: GPUDevice, bgl: GPUBindGroupLayout): void {
     const faces = this.buildFaces();
     if (!faces || faces.length === 0) return;
-    this.faceCount = faces.length / 15;
+    this.faceCount = faces.length / 24; // 8 floats × 3 verts per triangle
     this.scratchFaces = new Float32Array(faces.length);
     this.faceBuffer = device.createBuffer({
       size: faces.byteLength,
@@ -96,10 +96,16 @@ export class LurkerModel extends PlaneModel {
         (v[1] + 0.35) / 0.90,
       ];
       const [uA, vA] = uv(A), [uB, vB] = uv(B), [uC, vC] = uv(C);
+      // Face normal from cross product
+      const dx1=B[0]*s-A[0]*s, dy1=B[1]*s-A[1]*s, dz1=B[2]*s-A[2]*s;
+      const dx2=C[0]*s-A[0]*s, dy2=C[1]*s-A[1]*s, dz2=C[2]*s-A[2]*s;
+      const nx=dy1*dz2-dz1*dy2, ny=dz1*dx2-dx1*dz2, nz=dx1*dy2-dy1*dx2;
+      const nl=Math.sqrt(nx*nx+ny*ny+nz*nz)||1;
+      const [nnx,nny,nnz]=[nx/nl,ny/nl,nz/nl];
       out.push(
-        A[0]*s, A[1]*s, A[2]*s, uA, vA,
-        B[0]*s, B[1]*s, B[2]*s, uB, vB,
-        C[0]*s, C[1]*s, C[2]*s, uC, vC,
+        A[0]*s, A[1]*s, A[2]*s, nnx, nny, nnz, uA, vA,
+        B[0]*s, B[1]*s, B[2]*s, nnx, nny, nnz, uB, vB,
+        C[0]*s, C[1]*s, C[2]*s, nnx, nny, nnz, uC, vC,
       );
     }
     fillLimbFaces(t, out, this.variation);

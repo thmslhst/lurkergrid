@@ -29,6 +29,8 @@ export class Camera {
     // no auto-orbit
   }
 
+  position(): vec3 { return this.eye(); }
+
   private eye(): vec3 {
     const { radius, azimuth, elevation } = this;
     return [

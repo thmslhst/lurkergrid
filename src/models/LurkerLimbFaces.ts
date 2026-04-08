@@ -46,8 +46,14 @@ function ring4(c: vec3, fwd: vec3, r: number, tw: number, v: LimbVariation): vec
   });
 }
 
-function pt(o:number[], a:vec3,ua:number,va:number, b:vec3,ub:number,vb:number, c:vec3,uc:number,vc:number): void {
-  o.push(a[0],a[1],a[2],ua,va, b[0],b[1],b[2],ub,vb, c[0],c[1],c[2],uc,vc);
+function faceN(a:vec3, b:vec3, c:vec3): vec3 {
+  return n3(cx([b[0]-a[0],b[1]-a[1],b[2]-a[2]] as vec3, [c[0]-a[0],c[1]-a[1],c[2]-a[2]] as vec3));
+}
+
+function ptN(o:number[], n:vec3, a:vec3,ua:number,va:number, b:vec3,ub:number,vb:number, c:vec3,uc:number,vc:number): void {
+  o.push(a[0],a[1],a[2],n[0],n[1],n[2],ua,va,
+         b[0],b[1],b[2],n[0],n[1],n[2],ub,vb,
+         c[0],c[1],c[2],n[0],n[1],n[2],uc,vc);
 }
 
 function crystalSeg(A:vec3, B:vec3, rA:number, rB:number, uA:number, uB:number, tw:number, v:LimbVariation, o:number[]): void {
@@ -55,10 +61,14 @@ function crystalSeg(A:vec3, B:vec3, rA:number, rB:number, uA:number, uB:number, 
   const rA4 = ring4(A, fwd, rA, tw, v), rB4 = ring4(B, fwd, rB, tw+v.twistRate, v);
   for (let i = 0; i < 4; i++) {
     const a=rA4[i], b=rA4[(i+1)%4], v0=i/4, v1=(i+1)/4;
-    if (rB < 0.001) { pt(o, a,uA,v0, b,uA,v1, B,uB,(v0+v1)*0.5); }
-    else { const c=rB4[i], d=rB4[(i+1)%4];
-      pt(o, a,uA,v0, b,uA,v1, c,uB,v0);
-      pt(o, b,uA,v1, d,uB,v1, c,uB,v0); }
+    if (rB < 0.001) {
+      const nn = faceN(a, b, B);
+      ptN(o, nn, a,uA,v0, b,uA,v1, B,uB,(v0+v1)*0.5);
+    } else {
+      const c=rB4[i], d=rB4[(i+1)%4];
+      ptN(o, faceN(a,b,c), a,uA,v0, b,uA,v1, c,uB,v0);
+      ptN(o, faceN(b,d,c), b,uA,v1, d,uB,v1, c,uB,v0);
+    }
   }
 }
 

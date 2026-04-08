@@ -38,7 +38,7 @@ export abstract class PlaneModel {
     const faces = this.buildFaces();
     if (!faces || faces.length === 0) return;
 
-    this.faceCount = faces.length / 15; // 5 floats × 3 verts per triangle
+    this.faceCount = faces.length / 24; // 8 floats × 3 verts per triangle
     this.faceBuffer = device.createBuffer({
       size: faces.byteLength,
       usage: GPUBufferUsage.VERTEX,

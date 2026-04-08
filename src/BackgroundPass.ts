@@ -9,7 +9,7 @@ export class BackgroundPass {
   private scratch = new Float32Array(4);  // [time, resX, resY, pad]
   private w = 1; private h = 1;
 
-  init(device: GPUDevice, format: GPUTextureFormat): void {
+  init(device: GPUDevice, format: GPUTextureFormat, sampleCount = 1): void {
     const bgl = device.createBindGroupLayout({
       entries: [{ binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: {} }],
     });
@@ -20,6 +20,7 @@ export class BackgroundPass {
       fragment: { module: mod, entryPoint: 'fs', targets: [{ format }] },
       primitive:    { topology: 'triangle-list' },
       depthStencil: { format: 'depth24plus', depthWriteEnabled: false, depthCompare: 'always' },
+      multisample:  { count: sampleCount },
     });
     this.uniformBuffer = device.createBuffer({
       size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
