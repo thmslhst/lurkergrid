@@ -5,6 +5,7 @@ import { mat4Multiply } from './math';
 import type { Scene }  from './scene';
 import type { Camera } from './camera';
 import { FLOATS_PER_CONN, VERTS_PER_CONN } from './connection';
+import { BackgroundPass } from './BackgroundPass';
 
 // 16 nodes → max 120 connections (16*15/2)
 const MAX_CONNECTIONS = 120;
@@ -16,6 +17,7 @@ export class Renderer {
 
   connTextureBindGroup: GPUBindGroup | null = null;
 
+  private bg = new BackgroundPass();
   private context!: GPUCanvasContext;
   private wirePipeline!:  GPURenderPipeline;
   private connPipeline!:  GPURenderPipeline;
@@ -38,9 +40,11 @@ export class Renderer {
 
     this.initDepth(canvas.width, canvas.height);
     this.initPipelines();
+    this.bg.init(this.device, this.canvasFormat);
+    this.bg.resize(canvas.width, canvas.height);
   }
 
-  resize(w: number, h: number): void { this.initDepth(w, h); }
+  resize(w: number, h: number): void { this.initDepth(w, h); this.bg.resize(w, h); }
 
   private initDepth(w: number, h: number): void {
     this.depthTexture?.destroy();
@@ -142,7 +146,7 @@ export class Renderer {
     const pass = encoder.beginRenderPass({
       colorAttachments: [{
         view: this.context.getCurrentTexture().createView(),
-        clearValue: { r: 0.22, g: 0.22, b: 0.22, a: 1 },
+        clearValue: { r: 0, g: 0, b: 0, a: 1 },
         loadOp: 'clear', storeOp: 'store',
       }],
       depthStencilAttachment: {
@@ -150,6 +154,9 @@ export class Renderer {
         depthClearValue: 1, depthLoadOp: 'clear', depthStoreOp: 'store',
       },
     });
+
+    // 0 — Animated cloud background (fullscreen, no depth write)
+    this.bg.draw(this.device, pass, t);
 
     // 1 — Connections (textured, no depth, always through)
     const connCount = scene.buildConnGeometry(this.connScratch, t);
