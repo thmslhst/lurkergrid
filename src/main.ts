@@ -1,17 +1,19 @@
-import { Renderer } from './renderer';
-import { Camera } from './camera';
-import { Scene } from './scene';
-import { Node } from './node';
-import { CarrierModel } from './models/CarrierModel';
+import { Renderer }      from './renderer';
+import { Camera }        from './camera';
+import { Scene }         from './scene';
+import { CarrierModel }  from './models/CarrierModel';
 import { OrganicTextureGen, PAGE_SEED } from './OrganicTextureGen';
-import { gridHomePositions, type GridConfig } from './grid';
+import { type GridConfig } from './grid';
+import { ModelSpawner }  from './ModelSpawner';
 
 type vec4 = [number, number, number, number];
-
-const GRID_COLS = 4;
-const GRID_ROWS = 4;
-
 const NODE_COLOR: vec4 = [0.06, 0.06, 0.06, 1.0];
+
+// Grid extent helpers (mirrors grid.ts logic without importing GridModel)
+function halfExtents(cfg: GridConfig): { halfW: number; halfH: number } {
+  const halfH = cfg.cameraRadius * Math.tan(cfg.cameraFov / 2) * cfg.fillFactor;
+  return { halfH, halfW: halfH * cfg.aspect };
+}
 
 async function main(): Promise<void> {
   if (!navigator.gpu) {
@@ -26,16 +28,16 @@ async function main(): Promise<void> {
   const renderer = new Renderer();
   await renderer.init(canvas);
 
-  // Sixteen morphologically distinct carrier variants — one unique model per node.
-  const models = Array.from({ length: 16 }, (_, seed) => {
+  // Pool of 32 morphologically distinct carriers (lazy: models init'd once, nodes spawn later).
+  const modelPool = Array.from({ length: 32 }, (_, seed) => {
     const m = new CarrierModel(seed);
     m.init(renderer.device);
     m.initFaces(renderer.device, renderer.texBindGroupLayout);
     return m;
   });
-  renderer.connTextureBindGroup = models[0].faceBindGroup;
+  renderer.connTextureBindGroup = modelPool[0].faceBindGroup;
 
-  // ── Debug: 2D canvas overlay showing the generated texture ──────────────
+  // ── Debug texture preview ────────────────────────────────────────────────
   const dbgCanvas = document.createElement('canvas');
   dbgCanvas.width = dbgCanvas.height = 256;
   Object.assign(dbgCanvas.style, {
@@ -43,60 +45,39 @@ async function main(): Promise<void> {
     width: '180px', height: '180px',
     border: '1px solid rgba(255,255,255,0.3)',
     pointerEvents: 'none',
-    fontFamily: 'monospace',
   });
   document.body.appendChild(dbgCanvas);
   const ctx2d = dbgCanvas.getContext('2d')!;
-  function redrawDbg(): void {
-    const pixels = new OrganicTextureGen(PAGE_SEED).render(256, 'membrane');
-    ctx2d.putImageData(new ImageData(new Uint8ClampedArray(pixels.buffer), 256, 256), 0, 0);
-    ctx2d.fillStyle = 'rgba(0,0,0,0.55)';
-    ctx2d.fillRect(0, 0, 256, 20);
-    ctx2d.fillStyle = 'rgba(255,255,255,0.85)';
-    ctx2d.font = '11px monospace';
-    ctx2d.fillText('texture 1/1 · membrane · 256²', 6, 14);
-  }
-  redrawDbg();
-  // ─────────────────────────────────────────────────────────────────────────
+  const pixels = new OrganicTextureGen(PAGE_SEED).render(256, 'membrane');
+  ctx2d.putImageData(new ImageData(new Uint8ClampedArray(pixels.buffer), 256, 256), 0, 0);
+  ctx2d.fillStyle = 'rgba(0,0,0,0.55)'; ctx2d.fillRect(0, 0, 256, 20);
+  ctx2d.fillStyle = 'rgba(255,255,255,0.85)'; ctx2d.font = '11px monospace';
+  ctx2d.fillText('texture 1/1 · membrane · 256²', 6, 14);
+  // ────────────────────────────────────────────────────────────────────────
 
-  // ── Grid — positions derived from camera frustum at z = 0 ────────────────
   const camera = new Camera(canvas.width / canvas.height);
 
   let gridCfg: GridConfig = {
-    cols:         GRID_COLS,
-    rows:         GRID_ROWS,
+    cols: 4, rows: 4,
     aspect:       canvas.width / canvas.height,
-    cameraFov:    Math.PI / 3,  // must match Camera constructor
-    cameraRadius: 14,           // must match Camera constructor
+    cameraFov:    Math.PI / 3,
+    cameraRadius: 14,
     fillFactor:   0.78,
   };
 
-  // ── Carrier nodes — jittered grid, one unique model per node ────────────
-  const nodePositions = gridHomePositions(gridCfg, 0.7);
-  const nodes = nodePositions.map((pos, i) => {
-    const node = new Node(models[i % models.length], pos, NODE_COLOR, i * 1.7);
-    node.init(renderer.device, renderer.nodeBindGroupLayout);
-    return node;
-  });
-
-  const scene = new Scene(nodes);
+  const scene   = new Scene();
+  const { halfW, halfH } = halfExtents(gridCfg);
+  const spawner = new ModelSpawner(canvas, renderer, scene, modelPool, NODE_COLOR);
+  spawner.updateExtent(halfW, halfH);
 
   window.addEventListener('resize', () => {
     canvas.width  = window.innerWidth;
     canvas.height = window.innerHeight;
     camera.setAspect(canvas.width / canvas.height);
     renderer.resize(canvas.width, canvas.height);
-
-    // Recompute grid to match new viewport proportions.
     gridCfg = { ...gridCfg, aspect: canvas.width / canvas.height };
-
-    // Slide node attractors to new grid positions without resetting velocities.
-    const newPos = gridHomePositions(gridCfg, 0.7);
-    nodes.forEach((node, i) => {
-      node.physics.home[0] = newPos[i][0];
-      node.physics.home[1] = newPos[i][1];
-      node.physics.home[2] = newPos[i][2];
-    });
+    const e = halfExtents(gridCfg);
+    spawner.updateExtent(e.halfW, e.halfH);
   });
 
   let prev = performance.now();
@@ -105,8 +86,14 @@ async function main(): Promise<void> {
     prev = now;
     camera.tick(dt);
     scene.tick(dt, now);
-    for (const m of models) m.tick(renderer.device, now, scene.entropy);
-    renderer.frame(scene, camera, now);
+    spawner.tick(dt, now, camera);
+    // Tick models that are currently active
+    for (const node of scene.nodes) {
+      (node.model as CarrierModel).tick(renderer.device, now, scene.entropy * scene.chaosBoost);
+    }
+    // chaos: (chaosBoost - 1) mapped to 0-1 range for background shader
+    const bgChaos = Math.min(1, (scene.chaosBoost - 1) / 4.5);
+    renderer.frame(scene, camera, now, bgChaos);
     requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);

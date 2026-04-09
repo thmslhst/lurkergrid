@@ -33,10 +33,11 @@ export class BackgroundPass {
 
   resize(w: number, h: number): void { this.w = w; this.h = h; }
 
-  draw(device: GPUDevice, pass: GPURenderPassEncoder, t: number): void {
+  draw(device: GPUDevice, pass: GPURenderPassEncoder, t: number, chaos = 0): void {
     this.scratch[0] = t;
     this.scratch[1] = this.w;
     this.scratch[2] = this.h;
+    this.scratch[3] = chaos;
     device.queue.writeBuffer(this.uniformBuffer, 0, this.scratch);
     pass.setPipeline(this.pipeline);
     pass.setBindGroup(0, this.bindGroup);

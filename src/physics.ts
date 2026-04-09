@@ -28,7 +28,10 @@ export function makePhysicsState(home: vec3, seed: number): PhysicsState {
   };
 }
 
-export function integratePhysics(state: PhysicsState, dt: number, t: number, entropy: number): void {
+export function integratePhysics(
+  state: PhysicsState, dt: number, t: number, entropy: number,
+  wind?: vec3,
+): void {
   const dtS = dt * 0.001;
   const ts  = t  * 0.001;
   const s   = state.seed;
@@ -43,6 +46,13 @@ export function integratePhysics(state: PhysicsState, dt: number, t: number, ent
   state.vel[0] += (tx - state.pos[0]) * SPRING * dtS;
   state.vel[1] += (ty - state.pos[1]) * SPRING * dtS;
   state.vel[2] += (tz - state.pos[2]) * SPRING * dtS;
+
+  // Wind impulse (world-units/s added to velocity)
+  if (wind) {
+    state.vel[0] += wind[0] * dtS;
+    state.vel[1] += wind[1] * dtS;
+    state.vel[2] += wind[2] * dtS;
+  }
 
   // Exponential damping
   const damp = Math.pow(DAMPING, dtS);

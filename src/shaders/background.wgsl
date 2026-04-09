@@ -1,8 +1,8 @@
 struct BgUniforms {
-  time : f32,
-  resX : f32,
-  resY : f32,
-  _pad : f32,
+  time  : f32,
+  resX  : f32,
+  resY  : f32,
+  chaos : f32,   // 0 = calm, 1 = fully chaotic
 }
 @group(0) @binding(0) var<uniform> u : BgUniforms;
 
@@ -44,26 +44,31 @@ fn fbm(p0 : vec2<f32>) -> f32 {
 
 @fragment
 fn fs(@builtin(position) fragCoord : vec4<f32>) -> @location(0) vec4<f32> {
-  let t1 = u.time * 0.00005;   // very slow base drift
-  let t2 = u.time * 0.00009;   // mid warp layer
-  let t3 = u.time * 0.00014;   // fine warp layer — gives parallax
+  // chaos (0-1) speeds up all time layers and amplifies domain warp
+  let speed = 1.0 + u.chaos * 7.0;
+  let t1 = u.time * 0.00005 * speed;
+  let t2 = u.time * 0.00009 * speed;
+  let t3 = u.time * 0.00014 * speed;
 
   let uv = fragCoord.xy / vec2<f32>(u.resX, u.resY);
 
-  // Three-pass domain warp: each layer warps the next → cumulus / nebula feel
+  // Chaos amplifies the warp scale — clouds tear and churn at high chaos
+  let warpAmp = 1.0 + u.chaos * 3.5;
   let q = fbm(uv * 3.0 + vec2<f32>(t1,          t1 * 0.7));
-  let r = fbm(uv * 3.0 + vec2<f32>(q  + t2,     q  * 0.8 - t2 * 0.4));
-  let f = fbm(uv * 2.5 + vec2<f32>(r  * 1.7 - t3 * 0.3, r  * 1.1 + t3));
+  let r = fbm(uv * 3.0 + vec2<f32>(q * warpAmp  + t2,     q * warpAmp * 0.8 - t2 * 0.4));
+  let f = fbm(uv * 2.5 + vec2<f32>(r * warpAmp  * 1.7 - t3 * 0.3, r * warpAmp * 1.1 + t3));
 
-  let c  = clamp(pow(f, 0.85), 0.0, 1.0);
+  // At high chaos: flatten exponent → harsher contrast, brighter clouds
+  let gamma = mix(0.85, 0.45, u.chaos);
+  let c  = clamp(pow(f, gamma), 0.0, 1.0);
   let c2 = c * c;
 
-  // Deep black → mid grey palette — pure grayscale
+  let brightBoost = u.chaos * 0.12;
   let col = mix(
-    vec3<f32>(0.02, 0.02, 0.02),   // near black
+    vec3<f32>(0.02, 0.02, 0.02),
     mix(
-      vec3<f32>(0.08, 0.08, 0.08), // dark grey
-      vec3<f32>(0.22, 0.22, 0.22), // mid grey
+      vec3<f32>(0.08 + brightBoost, 0.08 + brightBoost, 0.08 + brightBoost),
+      vec3<f32>(0.22 + brightBoost * 2.0, 0.22 + brightBoost * 2.0, 0.22 + brightBoost * 2.0),
       c,
     ),
     c2,

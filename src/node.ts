@@ -11,6 +11,8 @@ export class Node {
   readonly physics: PhysicsState;
   readonly color: vec4;
   readonly model: PlaneModel;
+  /** Multiplied into color.a at draw time — used for fade-in / fade-out (0 → 1). */
+  alphaScale = 1.0;
 
   private device!: GPUDevice;
   private uniformBuffer!: GPUBuffer;
@@ -44,6 +46,7 @@ export class Node {
     const data = new Float32Array(20);
     data.set(this.worldMatrix(), 0);
     data.set(this.color, 16);
+    data[19] = this.color[3] * this.alphaScale;
     this.device.queue.writeBuffer(this.uniformBuffer, 0, data);
   }
 

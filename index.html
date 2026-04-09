@@ -7,10 +7,76 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { background: #000; overflow: hidden; }
     canvas { display: block; width: 100vw; height: 100vh; }
+
+    #spawn-overlay {
+      position: fixed; inset: 0;
+      pointer-events: none; z-index: 10;
+    }
+
+    /* Ghost placeholder that occupies the future model's screen area */
+    .spawn-slot {
+      position: absolute;
+      width: 74px; height: 74px;
+      transform: translate(-50%, -50%);
+      font-family: monospace;
+      animation: slot-pulse 2.2s ease-in-out infinite;
+    }
+
+    /* Four corner brackets via pseudo-elements + two child divs */
+    .spawn-slot::before {
+      content: ''; position: absolute;
+      top: 0; left: 0; width: 13px; height: 13px;
+      border-top: 1px solid rgba(255,255,255,0.45);
+      border-left: 1px solid rgba(255,255,255,0.45);
+    }
+    .spawn-slot::after {
+      content: ''; position: absolute;
+      bottom: 0; right: 0; width: 13px; height: 13px;
+      border-bottom: 1px solid rgba(255,255,255,0.45);
+      border-right: 1px solid rgba(255,255,255,0.45);
+    }
+    .spawn-corner-tr {
+      position: absolute; top: 0; right: 0;
+      width: 13px; height: 13px;
+      border-top: 1px solid rgba(255,255,255,0.45);
+      border-right: 1px solid rgba(255,255,255,0.45);
+    }
+    .spawn-corner-bl {
+      position: absolute; bottom: 0; left: 0;
+      width: 13px; height: 13px;
+      border-bottom: 1px solid rgba(255,255,255,0.45);
+      border-left: 1px solid rgba(255,255,255,0.45);
+    }
+
+    .spawn-inner {
+      position: absolute; inset: 14px;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 6px;
+    }
+    .spawn-prob {
+      font-size: 11px; line-height: 1;
+      color: rgba(255,255,255,0.7);
+      letter-spacing: 0.07em;
+    }
+    .spawn-bar-track {
+      width: 100%; height: 1px;
+      background: rgba(255,255,255,0.1);
+    }
+    .spawn-bar {
+      height: 100%;
+      background: rgba(255,255,255,0.55);
+    }
+
+    @keyframes slot-pulse {
+      0%, 100% { opacity: 0.50; }
+      50%       { opacity: 0.85; }
+    }
   </style>
 </head>
 <body>
   <canvas id="canvas"></canvas>
+  <div id="spawn-overlay"></div>
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

@@ -7,8 +7,8 @@ import type { Camera } from './camera';
 import { FLOATS_PER_CONN, VERTS_PER_CONN } from './connection';
 import { BackgroundPass } from './BackgroundPass';
 
-// 16 nodes → max 120 connections (16*15/2)
-const MAX_CONNECTIONS = 120;
+// 32 nodes → max 496 connections (32*31/2)
+const MAX_CONNECTIONS = 496;
 const MSAA_COUNT = 4;
 
 export class Renderer {
@@ -153,7 +153,7 @@ export class Renderer {
     });
   }
 
-  frame(scene: Scene, camera: Camera, t: number, gridNode?: import('./node').Node): void {
+  frame(scene: Scene, camera: Camera, t: number, chaos = 0, gridNode?: import('./node').Node): void {
     const viewProj = mat4Multiply(camera.projMatrix(), camera.viewMatrix());
     const camPos   = camera.position();
     this.sharedScratch.set(viewProj, 0);
@@ -178,7 +178,7 @@ export class Renderer {
     });
 
     // 0 — Animated cloud background (fullscreen, no depth write)
-    this.bg.draw(this.device, pass, t);
+    this.bg.draw(this.device, pass, t, chaos);
 
     // 1 — Connections (textured, no depth, always through)
     const connCount = scene.buildConnGeometry(this.connScratch, t);
