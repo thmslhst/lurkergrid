@@ -2,7 +2,6 @@ import { Renderer }      from './renderer';
 import { Camera }        from './camera';
 import { Scene }         from './scene';
 import { CarrierModel }  from './models/CarrierModel';
-import { OrganicTextureGen, PAGE_SEED } from './OrganicTextureGen';
 import { type GridConfig } from './grid';
 import { ModelSpawner }  from './ModelSpawner';
 
@@ -36,24 +35,6 @@ async function main(): Promise<void> {
     return m;
   });
   renderer.connTextureBindGroup = modelPool[0].faceBindGroup;
-
-  // ── Debug texture preview ────────────────────────────────────────────────
-  const dbgCanvas = document.createElement('canvas');
-  dbgCanvas.width = dbgCanvas.height = 256;
-  Object.assign(dbgCanvas.style, {
-    position: 'fixed', bottom: '12px', right: '12px',
-    width: '180px', height: '180px',
-    border: '1px solid rgba(255,255,255,0.3)',
-    pointerEvents: 'none',
-  });
-  document.body.appendChild(dbgCanvas);
-  const ctx2d = dbgCanvas.getContext('2d')!;
-  const pixels = new OrganicTextureGen(PAGE_SEED).render(256, 'membrane');
-  ctx2d.putImageData(new ImageData(new Uint8ClampedArray(pixels.buffer), 256, 256), 0, 0);
-  ctx2d.fillStyle = 'rgba(0,0,0,0.55)'; ctx2d.fillRect(0, 0, 256, 20);
-  ctx2d.fillStyle = 'rgba(255,255,255,0.85)'; ctx2d.font = '11px monospace';
-  ctx2d.fillText('texture 1/1 · membrane · 256²', 6, 14);
-  // ────────────────────────────────────────────────────────────────────────
 
   const camera = new Camera(canvas.width / canvas.height);
 
