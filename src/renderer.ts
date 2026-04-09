@@ -7,8 +7,9 @@ import type { Camera } from './camera';
 import { FLOATS_PER_CONN, VERTS_PER_CONN } from './connection';
 import { BackgroundPass } from './BackgroundPass';
 
-// 32 nodes → max 496 connections (32*31/2)
-const MAX_CONNECTIONS = 496;
+// Up to ~40 nodes transiently (evictions fade out over 120ms before removal)
+// 40*39/2 = 780 — give headroom above the 32-node steady state
+const MAX_CONNECTIONS = 780;
 const MSAA_COUNT = 4;
 
 export class Renderer {

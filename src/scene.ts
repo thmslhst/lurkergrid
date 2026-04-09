@@ -89,12 +89,16 @@ export class Scene {
   }
 
   buildConnGeometry(scratch: Float32Array, t: number): number {
+    const maxConn = Math.floor(scratch.length / FLOATS_PER_CONN);
     let off = 0;
+    let count = 0;
     for (const conn of this.connections) {
+      if (count >= maxConn) break;
       conn.writeGeometry(scratch, off, this.entropy, t);
       off += FLOATS_PER_CONN;
+      count++;
     }
-    return this.connections.length;
+    return count;
   }
 
   private buildConnections(): void {
