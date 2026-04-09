@@ -1,6 +1,6 @@
 import wireframeWGSL  from './shaders/wireframe.wgsl?raw';
 import connectionWGSL from './shaders/connection.wgsl?raw';
-import texturedWGSL   from './shaders/textured.wgsl?raw';
+import clothWGSL      from './shaders/cloth.wgsl?raw';
 import { mat4Multiply } from './math';
 import type { Scene }  from './scene';
 import type { Camera } from './camera';
@@ -110,7 +110,7 @@ export class Renderer {
     });
 
     // Textured face pipeline — lit triangles, [pos(3) normal(3) uv(2)] = 8 floats / 32 bytes
-    const texMod = this.device.createShaderModule({ code: texturedWGSL });
+    const texMod = this.device.createShaderModule({ code: clothWGSL });
     this.texPipeline = this.device.createRenderPipeline({
       layout: this.device.createPipelineLayout({
         bindGroupLayouts: [bgl0, this.nodeBindGroupLayout, this.texBindGroupLayout],

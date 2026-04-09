@@ -1,7 +1,7 @@
 import { Renderer }      from './renderer';
 import { Camera }        from './camera';
 import { Scene }         from './scene';
-import { CarrierModel }  from './models/CarrierModel';
+import { ClothModel }    from './models/ClothModel';
 import { type GridConfig } from './grid';
 import { ModelSpawner }  from './ModelSpawner';
 
@@ -29,7 +29,7 @@ async function main(): Promise<void> {
 
   // Pool of 32 morphologically distinct carriers (lazy: models init'd once, nodes spawn later).
   const modelPool = Array.from({ length: 32 }, (_, seed) => {
-    const m = new CarrierModel(seed);
+    const m = new ClothModel(seed);
     m.init(renderer.device);
     m.initFaces(renderer.device, renderer.texBindGroupLayout);
     return m;
@@ -70,7 +70,7 @@ async function main(): Promise<void> {
     spawner.tick(dt, camera);
     // Tick models that are currently active
     for (const node of scene.nodes) {
-      (node.model as CarrierModel).tick(renderer.device, now, scene.entropy * scene.chaosBoost);
+      (node.model as ClothModel).tick(renderer.device, now, scene.entropy * scene.chaosBoost, node.physics.vel);
     }
     renderer.frame(scene, camera, now);
     requestAnimationFrame(loop);
