@@ -5,7 +5,6 @@ import { mat4Multiply } from './math';
 import type { Scene }  from './scene';
 import type { Camera } from './camera';
 import { FLOATS_PER_CONN, VERTS_PER_CONN } from './connection';
-import { BackgroundPass } from './BackgroundPass';
 
 // Up to ~40 nodes transiently (evictions fade out over 120ms before removal)
 // 40*39/2 = 780 — give headroom above the 32-node steady state
@@ -19,7 +18,6 @@ export class Renderer {
 
   connTextureBindGroup: GPUBindGroup | null = null;
 
-  private bg = new BackgroundPass();
   private context!: GPUCanvasContext;
   private wirePipeline!:  GPURenderPipeline;
   private connPipeline!:  GPURenderPipeline;
@@ -44,11 +42,9 @@ export class Renderer {
 
     this.initDepth(canvas.width, canvas.height);
     this.initPipelines();
-    this.bg.init(this.device, this.canvasFormat, MSAA_COUNT);
-    this.bg.resize(canvas.width, canvas.height);
   }
 
-  resize(w: number, h: number): void { this.initDepth(w, h); this.bg.resize(w, h); }
+  resize(w: number, h: number): void { this.initDepth(w, h); }
 
   private initDepth(w: number, h: number): void {
     this.depthTexture?.destroy();
@@ -177,9 +173,6 @@ export class Renderer {
         depthClearValue: 1, depthLoadOp: 'clear', depthStoreOp: 'store',
       },
     });
-
-    // 0 — Gradient background with optional blast ring
-    this.bg.draw(this.device, pass, t);
 
     // 1 — Connections (textured, no depth, always through)
     const connCount = scene.buildConnGeometry(this.connScratch, t);
