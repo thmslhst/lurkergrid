@@ -52,16 +52,16 @@ export class CarrierModel extends PlaneModel {
     });
   }
 
-  tick(device: GPUDevice, t: number): void {
+  tick(device: GPUDevice, t: number, entropy = 0): void {
     if (this.scratchEdges) {
       const tmp: number[] = [];
-      this.fillEdges(t, tmp);
+      this.fillEdges(t, entropy, tmp);
       for (let i = 0; i < tmp.length; i++) this.scratchEdges[i] = tmp[i];
       device.queue.writeBuffer(this.edgeBuffer, 0, this.scratchEdges);
     }
     if (this.scratchFaces && this.faceBuffer) {
       const tmp: number[] = [];
-      this.fillFaces(t, tmp);
+      this.fillFaces(t, entropy, tmp);
       for (let i = 0; i < tmp.length; i++) this.scratchFaces[i] = tmp[i];
       device.queue.writeBuffer(this.faceBuffer, 0, this.scratchFaces);
     }
@@ -69,24 +69,24 @@ export class CarrierModel extends PlaneModel {
 
   buildEdges(): Float32Array {
     const tmp: number[] = [];
-    this.fillEdges(0, tmp);
+    this.fillEdges(0, 0, tmp);
     return new Float32Array(tmp);
   }
 
-  private fillEdges(t: number, out: number[]): void {
+  private fillEdges(t: number, entropy: number, out: number[]): void {
     for (const [a, b] of BODY_EDGES) {
       seg(out, BODY[a][0], BODY[a][1], BODY[a][2], BODY[b][0], BODY[b][1], BODY[b][2]);
     }
-    fillFilamentEdges(t, out, this.variation.scale);
+    fillFilamentEdges(t, out, this.variation.scale, entropy);
   }
 
   buildFaces(): Float32Array {
     const tmp: number[] = [];
-    this.fillFaces(0, tmp);
+    this.fillFaces(0, 0, tmp);
     return new Float32Array(tmp);
   }
 
-  private fillFaces(t: number, out: number[]): void {
+  private fillFaces(t: number, entropy: number, out: number[]): void {
     // Slow pulse: scale oscillates ±1.8%
     const s = 1.0 + Math.sin(t * 0.00080) * 0.018;
     for (const [ai, bi, ci] of BODY_FACES) {
@@ -107,6 +107,6 @@ export class CarrierModel extends PlaneModel {
         C[0]*s, C[1]*s, C[2]*s, nnx, nny, nnz, uC, vC,
       );
     }
-    fillFilamentFaces(t, out, this.variation);
+    fillFilamentFaces(t, out, this.variation, entropy);
   }
 }

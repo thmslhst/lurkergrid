@@ -1,7 +1,7 @@
 // CarrierEmanations — crystal prism face geometry for CarrierModel filaments.
 // Per-instance variation driven by seed: proportions, cross-section shape, twist rate.
 import type { vec3 } from '../math';
-import { BODY, FILAMENTS } from './CarrierGeom';
+import { BODY, FILAMENTS, windDisp, perpTo } from './CarrierGeom';
 
 export type EmanationVariation = {
   scale:      number;                           // filament joint offset multiplier
@@ -72,16 +72,19 @@ function crystalSeg(A:vec3, B:vec3, rA:number, rB:number, uA:number, uB:number, 
   }
 }
 
-export function fillFilamentFaces(t: number, out: number[], v: EmanationVariation): void {
+export function fillFilamentFaces(t: number, out: number[], v: EmanationVariation, entropy = 0): void {
   for (const fil of FILAMENTS) {
-    const base=BODY[fil.base], sw=Math.sin(t*fil.swaySpeed+fil.swayPhase), n=fil.joints.length;
+    const base=BODY[fil.base], n=fil.joints.length;
+    const pAxis = perpTo(fil.swayAxis);
     const pts: vec3[] = [base];
     for (let j = 0; j < n; j++) {
-      const rel=fil.joints[j], frac=(j+1)/n, s=sw*fil.swayAmp*frac;
+      const rel=fil.joints[j], depth=(j+1)/n;
+      const sw  = windDisp(t, fil.swaySpeed, fil.swayPhase, depth, entropy) * fil.swayAmp * depth;
+      const sw2 = windDisp(t, fil.swaySpeed * 1.31, fil.swayPhase + 1.57, depth, entropy) * fil.swayAmp * depth * 0.35;
       pts.push([
-        base[0]+rel[0]*v.scale+fil.swayAxis[0]*s,
-        base[1]+rel[1]*v.scale+fil.swayAxis[1]*s,
-        base[2]+rel[2]*v.scale+fil.swayAxis[2]*s,
+        base[0]+rel[0]*v.scale+fil.swayAxis[0]*sw+pAxis[0]*sw2,
+        base[1]+rel[1]*v.scale+fil.swayAxis[1]*sw+pAxis[1]*sw2,
+        base[2]+rel[2]*v.scale+fil.swayAxis[2]*sw+pAxis[2]*sw2,
       ]);
     }
     const L=pts.length; let tw=0;
@@ -92,12 +95,14 @@ export function fillFilamentFaces(t: number, out: number[], v: EmanationVariatio
       tw += v.twistRate;
     }
     if (fil.fork) {
-      const last=pts[L-1], s=sw*fil.swayAmp;
+      const last=pts[L-1];
+      const sw  = windDisp(t, fil.swaySpeed, fil.swayPhase, 1.0, entropy) * fil.swayAmp;
+      const sw2 = windDisp(t, fil.swaySpeed * 1.31, fil.swayPhase + 1.57, 1.0, entropy) * fil.swayAmp * 0.35;
       for (const fr of fil.fork) {
         const tip: vec3 = [
-          base[0]+fr[0]*v.scale+fil.swayAxis[0]*s,
-          base[1]+fr[1]*v.scale+fil.swayAxis[1]*s,
-          base[2]+fr[2]*v.scale+fil.swayAxis[2]*s,
+          base[0]+fr[0]*v.scale+fil.swayAxis[0]*sw+pAxis[0]*sw2,
+          base[1]+fr[1]*v.scale+fil.swayAxis[1]*sw+pAxis[1]*sw2,
+          base[2]+fr[2]*v.scale+fil.swayAxis[2]*sw+pAxis[2]*sw2,
         ];
         crystalSeg(last, tip, v.tipR*2.4, 0, 0.85, 1.0, tw, v, out);
         tw += 0.35;

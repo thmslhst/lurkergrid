@@ -105,7 +105,7 @@ async function main(): Promise<void> {
     prev = now;
     camera.tick(dt);
     scene.tick(dt, now);
-    for (const m of models) m.tick(renderer.device, now);
+    for (const m of models) m.tick(renderer.device, now, scene.entropy);
     renderer.frame(scene, camera, now);
     requestAnimationFrame(loop);
   }

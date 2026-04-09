@@ -3,6 +3,30 @@
 // Five filaments with distinct sway patterns and attachment points distributed across the hull.
 import type { vec3 } from '../math';
 
+// Multi-harmonic wind displacement — three overlapping sinusoids with phase lag along depth.
+// depth 0 = root (hull junction), depth 1 = tip.  Tip lags root by ~π/2, giving whip effect.
+export function windDisp(
+  t: number, speed: number, phase: number, depth: number, entropy: number,
+): number {
+  const lag = depth * Math.PI * 0.42;
+  const amp = 1.0 + entropy * 1.4;
+  return amp * (
+      Math.sin(t * speed        + phase + lag)
+    + Math.sin(t * speed * 2.73 + phase * 1.91 + lag * 1.3) * 0.28
+    + Math.sin(t * speed * 6.17 + phase * 0.43 + lag * 2.1) * 0.09
+  );
+}
+
+// Returns a unit vector perpendicular to v, stable across all orientations.
+export function perpTo(v: vec3): vec3 {
+  const [x, y, z] = v;
+  const ref: vec3 = Math.abs(x) <= Math.abs(y) && Math.abs(x) <= Math.abs(z)
+    ? [1, 0, 0] : Math.abs(y) <= Math.abs(z) ? [0, 1, 0] : [0, 0, 1];
+  const cx = y*ref[2]-z*ref[1], cy = z*ref[0]-x*ref[2], cz = x*ref[1]-y*ref[0];
+  const l = Math.sqrt(cx*cx+cy*cy+cz*cz) || 1;
+  return [cx/l, cy/l, cz/l];
+}
+
 // Compact irregular polyhedron — vertices distributed spheroidally with no vertical bias.
 export const BODY: vec3[] = [
   [  0.00,  0.26,  0.10],  // 0
@@ -108,20 +132,22 @@ export function seg(
   out.push(ax, ay, az, bx, by, bz);
 }
 
-export function fillFilamentEdges(t: number, out: number[], scale = 1.0): void {
+export function fillFilamentEdges(t: number, out: number[], scale = 1.0, entropy = 0): void {
   for (const fil of FILAMENTS) {
     const base = BODY[fil.base];
-    const sway = Math.sin(t * fil.swaySpeed + fil.swayPhase);
-    const n = fil.joints.length;
+    const n    = fil.joints.length;
+    const pAxis = perpTo(fil.swayAxis);
     const pts: vec3[] = [base];
     for (let j = 0; j < n; j++) {
-      const rel = fil.joints[j];
-      const frac = (j + 1) / n;
-      const sw = sway * fil.swayAmp * frac;
+      const rel   = fil.joints[j];
+      const depth = (j + 1) / n;
+      // Primary sway + secondary cross-axis wobble (35% amplitude, offset frequency)
+      const sw  = windDisp(t, fil.swaySpeed, fil.swayPhase, depth, entropy) * fil.swayAmp * depth;
+      const sw2 = windDisp(t, fil.swaySpeed * 1.31, fil.swayPhase + 1.57, depth, entropy) * fil.swayAmp * depth * 0.35;
       pts.push([
-        base[0] + rel[0] * scale + fil.swayAxis[0] * sw,
-        base[1] + rel[1] * scale + fil.swayAxis[1] * sw,
-        base[2] + rel[2] * scale + fil.swayAxis[2] * sw,
+        base[0] + rel[0] * scale + fil.swayAxis[0] * sw + pAxis[0] * sw2,
+        base[1] + rel[1] * scale + fil.swayAxis[1] * sw + pAxis[1] * sw2,
+        base[2] + rel[2] * scale + fil.swayAxis[2] * sw + pAxis[2] * sw2,
       ]);
     }
     for (let i = 0; i + 1 < pts.length; i++) {
@@ -130,12 +156,13 @@ export function fillFilamentEdges(t: number, out: number[], scale = 1.0): void {
     }
     if (fil.fork) {
       const last = pts[pts.length - 1];
-      const sw = sway * fil.swayAmp;
+      const sw  = windDisp(t, fil.swaySpeed, fil.swayPhase, 1.0, entropy) * fil.swayAmp;
+      const sw2 = windDisp(t, fil.swaySpeed * 1.31, fil.swayPhase + 1.57, 1.0, entropy) * fil.swayAmp * 0.35;
       for (const frel of fil.fork) {
         seg(out, last[0], last[1], last[2],
-          base[0] + frel[0] * scale + fil.swayAxis[0] * sw,
-          base[1] + frel[1] * scale + fil.swayAxis[1] * sw,
-          base[2] + frel[2] * scale + fil.swayAxis[2] * sw,
+          base[0] + frel[0] * scale + fil.swayAxis[0] * sw + pAxis[0] * sw2,
+          base[1] + frel[1] * scale + fil.swayAxis[1] * sw + pAxis[1] * sw2,
+          base[2] + frel[2] * scale + fil.swayAxis[2] * sw + pAxis[2] * sw2,
         );
       }
     }
