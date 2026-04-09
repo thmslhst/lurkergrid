@@ -26,8 +26,8 @@ async function main(): Promise<void> {
   const renderer = new Renderer();
   await renderer.init(canvas);
 
-  // Four morphologically distinct carrier variants — same hull, divergent filaments.
-  const models = [0, 1, 2, 3].map(seed => {
+  // Sixteen morphologically distinct carrier variants — one unique model per node.
+  const models = Array.from({ length: 16 }, (_, seed) => {
     const m = new CarrierModel(seed);
     m.init(renderer.device);
     m.initFaces(renderer.device, renderer.texBindGroupLayout);
@@ -71,8 +71,8 @@ async function main(): Promise<void> {
     fillFactor:   0.78,
   };
 
-  // ── Carrier nodes — snapped to grid cell centres ─────────────────────────
-  const nodePositions = gridHomePositions(gridCfg);
+  // ── Carrier nodes — jittered grid, one unique model per node ────────────
+  const nodePositions = gridHomePositions(gridCfg, 0.7);
   const nodes = nodePositions.map((pos, i) => {
     const node = new Node(models[i % models.length], pos, NODE_COLOR, i * 1.7);
     node.init(renderer.device, renderer.nodeBindGroupLayout);
@@ -91,7 +91,7 @@ async function main(): Promise<void> {
     gridCfg = { ...gridCfg, aspect: canvas.width / canvas.height };
 
     // Slide node attractors to new grid positions without resetting velocities.
-    const newPos = gridHomePositions(gridCfg);
+    const newPos = gridHomePositions(gridCfg, 0.7);
     nodes.forEach((node, i) => {
       node.physics.home[0] = newPos[i][0];
       node.physics.home[1] = newPos[i][1];

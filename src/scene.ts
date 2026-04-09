@@ -9,7 +9,7 @@ const ENTROPY_DECAY = 0.00001; // slow bleed; system never fully stabilizes
 export class Scene {
   readonly nodes: Node[];
   connections: Connection[] = [];
-  entropy = 0;
+  entropy = 0.9;
 
   constructor(nodes: Node[]) {
     this.nodes = nodes;
