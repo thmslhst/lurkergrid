@@ -153,7 +153,7 @@ export class Renderer {
     });
   }
 
-  frame(scene: Scene, camera: Camera, t: number, chaos = 0, gridNode?: import('./node').Node): void {
+  frame(scene: Scene, camera: Camera, t: number, gridNode?: import('./node').Node): void {
     const viewProj = mat4Multiply(camera.projMatrix(), camera.viewMatrix());
     const camPos   = camera.position();
     this.sharedScratch.set(viewProj, 0);
@@ -177,8 +177,8 @@ export class Renderer {
       },
     });
 
-    // 0 — Animated cloud background (fullscreen, no depth write)
-    this.bg.draw(this.device, pass, t, chaos);
+    // 0 — Gradient background with optional blast ring
+    this.bg.draw(this.device, pass, t);
 
     // 1 — Connections (textured, no depth, always through)
     const connCount = scene.buildConnGeometry(this.connScratch, t);

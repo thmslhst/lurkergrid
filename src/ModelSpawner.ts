@@ -61,9 +61,9 @@ export class ModelSpawner {
     this.halfH = halfH;
   }
 
-  tick(dt: number, t: number, camera: Camera): void {
+  tick(dt: number, camera: Camera): void {
     this.tickFading(dt);
-    this.tickSlots(dt, t, camera);
+    this.tickSlots(dt, camera);
     this.timer -= dt;
     if (this.timer <= 0 && this.slots.length < MAX_PENDING) {
       this.timer = SPAWN_INTERVAL_MS * (0.5 + Math.random());
@@ -85,7 +85,7 @@ export class ModelSpawner {
     }
   }
 
-  private tickSlots(dt: number, _t: number, camera: Camera): void {
+  private tickSlots(dt: number, camera: Camera): void {
     for (let i = this.slots.length - 1; i >= 0; i--) {
       const slot = this.slots[i];
       slot.elapsed += dt;

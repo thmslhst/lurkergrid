@@ -86,14 +86,12 @@ async function main(): Promise<void> {
     prev = now;
     camera.tick(dt);
     scene.tick(dt, now);
-    spawner.tick(dt, now, camera);
+    spawner.tick(dt, camera);
     // Tick models that are currently active
     for (const node of scene.nodes) {
       (node.model as CarrierModel).tick(renderer.device, now, scene.entropy * scene.chaosBoost);
     }
-    // chaos: (chaosBoost - 1) mapped to 0-1 range for background shader
-    const bgChaos = Math.min(1, (scene.chaosBoost - 1) / 4.5);
-    renderer.frame(scene, camera, now, bgChaos);
+    renderer.frame(scene, camera, now);
     requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);

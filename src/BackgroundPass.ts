@@ -1,12 +1,12 @@
 import backgroundWGSL from './shaders/background.wgsl?raw';
 
-// Renders a fullscreen animated FBM-cloud background via a single triangle draw.
-// No vertex buffer — vertex positions are generated from vertex_index in the shader.
+// Fullscreen noise gradient background.
+// Uniform layout: [time, resX, resY, _pad] = 16 bytes (WebGPU alignment)
 export class BackgroundPass {
-  private pipeline!:     GPURenderPipeline;
+  private pipeline!:      GPURenderPipeline;
   private uniformBuffer!: GPUBuffer;
-  private bindGroup!:    GPUBindGroup;
-  private scratch = new Float32Array(4);  // [time, resX, resY, pad]
+  private bindGroup!:     GPUBindGroup;
+  private scratch = new Float32Array(4);  // 4 floats, last is padding
   private w = 1; private h = 1;
 
   init(device: GPUDevice, format: GPUTextureFormat, sampleCount = 1): void {
@@ -33,11 +33,8 @@ export class BackgroundPass {
 
   resize(w: number, h: number): void { this.w = w; this.h = h; }
 
-  draw(device: GPUDevice, pass: GPURenderPassEncoder, t: number, chaos = 0): void {
-    this.scratch[0] = t;
-    this.scratch[1] = this.w;
-    this.scratch[2] = this.h;
-    this.scratch[3] = chaos;
+  draw(device: GPUDevice, pass: GPURenderPassEncoder, t: number): void {
+    this.scratch[0] = t; this.scratch[1] = this.w; this.scratch[2] = this.h;
     device.queue.writeBuffer(this.uniformBuffer, 0, this.scratch);
     pass.setPipeline(this.pipeline);
     pass.setBindGroup(0, this.bindGroup);
