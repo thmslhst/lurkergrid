@@ -13,8 +13,9 @@ const MSAA_COUNT = 4;
 
 export class Renderer {
   device!: GPUDevice;
-  nodeBindGroupLayout!: GPUBindGroupLayout;
-  texBindGroupLayout!:  GPUBindGroupLayout;  // sampler(b0) + texture(b1) — for model faces
+  nodeBindGroupLayout!:  GPUBindGroupLayout;
+  texBindGroupLayout!:   GPUBindGroupLayout;  // sampler(b0) + texture(b1) — for connections
+  clothTexBindGroupLayout!: GPUBindGroupLayout; // sampler(b0) + albedo(b1) + normalMap(b2) — for cloth faces
 
   connTextureBindGroup: GPUBindGroup | null = null;
 
@@ -72,6 +73,13 @@ export class Renderer {
         { binding: 1, visibility: GPUShaderStage.FRAGMENT, texture:  {} },
       ],
     });
+    this.clothTexBindGroupLayout = this.device.createBindGroupLayout({
+      entries: [
+        { binding: 0, visibility: GPUShaderStage.FRAGMENT, sampler:  {} },
+        { binding: 1, visibility: GPUShaderStage.FRAGMENT, texture:  {} },
+        { binding: 2, visibility: GPUShaderStage.FRAGMENT, texture:  {} },
+      ],
+    });
 
     const msaa = { count: MSAA_COUNT };
 
@@ -109,18 +117,20 @@ export class Renderer {
       multisample:  msaa,
     });
 
-    // Textured face pipeline — lit triangles, [pos(3) normal(3) uv(2)] = 8 floats / 32 bytes
+    // Textured face pipeline — lit triangles with normal mapping
+    // Vertex layout: [pos(3) normal(3) uv(2) tangent(3)] = 11 floats / 44 bytes
     const texMod = this.device.createShaderModule({ code: clothWGSL });
     this.texPipeline = this.device.createRenderPipeline({
       layout: this.device.createPipelineLayout({
-        bindGroupLayouts: [bgl0, this.nodeBindGroupLayout, this.texBindGroupLayout],
+        bindGroupLayouts: [bgl0, this.nodeBindGroupLayout, this.clothTexBindGroupLayout],
       }),
       vertex: {
         module: texMod, entryPoint: 'vs',
-        buffers: [{ arrayStride: 32, attributes: [
+        buffers: [{ arrayStride: 44, attributes: [
           { shaderLocation: 0, offset: 0,  format: 'float32x3' },  // pos
           { shaderLocation: 1, offset: 12, format: 'float32x3' },  // normal
           { shaderLocation: 2, offset: 24, format: 'float32x2' },  // uv
+          { shaderLocation: 3, offset: 32, format: 'float32x3' },  // tangent
         ]}],
       },
       fragment: {

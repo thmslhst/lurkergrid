@@ -2,6 +2,7 @@ import { Renderer }      from './renderer';
 import { Camera }        from './camera';
 import { Scene }         from './scene';
 import { ClothModel }    from './models/ClothModel';
+import { OrganicTextureGen, PAGE_SEED } from './OrganicTextureGen';
 import { type GridConfig } from './grid';
 import { ModelSpawner }  from './ModelSpawner';
 
@@ -28,13 +29,24 @@ async function main(): Promise<void> {
   await renderer.init(canvas);
 
   // Pool of 32 morphologically distinct carriers (lazy: models init'd once, nodes spawn later).
-  const modelPool = Array.from({ length: 32 }, (_, seed) => {
+  // initFaces is async — it fetches x.png + x-normal.png (cached after the first call).
+  const modelPool: ClothModel[] = [];
+  for (let seed = 0; seed < 32; seed++) {
     const m = new ClothModel(seed);
     m.init(renderer.device);
-    m.initFaces(renderer.device, renderer.texBindGroupLayout);
-    return m;
+    await m.initFaces(renderer.device, renderer.clothTexBindGroupLayout);
+    modelPool.push(m);
+  }
+  // Connections use their own organic texture — independent of the cloth sprite textures.
+  const connTex     = OrganicTextureGen.generate(renderer.device, 256, PAGE_SEED, 'membrane');
+  const connSampler = renderer.device.createSampler({ magFilter: 'linear', minFilter: 'linear' });
+  renderer.connTextureBindGroup = renderer.device.createBindGroup({
+    layout: renderer.texBindGroupLayout,
+    entries: [
+      { binding: 0, resource: connSampler },
+      { binding: 1, resource: connTex.createView() },
+    ],
   });
-  renderer.connTextureBindGroup = modelPool[0].faceBindGroup;
 
   const camera = new Camera(canvas.width / canvas.height);
 

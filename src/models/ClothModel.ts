@@ -1,20 +1,50 @@
 // ClothModel — subdivided plane that deforms like cloth.
 // N×N grid with per-vertex Z displacement from multi-frequency wave functions.
-// Amplitude scales with entropy×chaosBoost (spawn/delete events) and node velocity
-// (connection-driven physics), giving a reactive cloth feel.
+// Amplitude scales with entropy×chaosBoost and node velocity.
+// Vertex layout: pos(3) nrm(3) uv(2) tangent(3) = 11 floats / 44 bytes per vertex.
+// Textures: x.png (albedo) + x-normal.png (normal map for surface volume).
 import { PlaneModel } from './PlaneModel';
-import { OrganicTextureGen, PAGE_SEED, type OrgVariant } from '../OrganicTextureGen';
+import albedoUrl from '../x.png';
+import normalUrl from '../x-normal.png';
 
 const N    = 10;   // grid subdivisions → (N+1)² verts, 2N² triangles
 const SIZE = 1.0;  // side length in local units (±0.5)
+const FLOATS_PER_VERT = 11; // pos(3) + nrm(3) + uv(2) + tangent(3)
+
+// Shared texture promise — loaded once, reused across all instances.
+let _texPromise: Promise<{ albedo: GPUTexture; normal: GPUTexture }> | null = null;
+
+async function loadGpuTexture(device: GPUDevice, url: string): Promise<GPUTexture> {
+  const res    = await fetch(url);
+  const blob   = await res.blob();
+  const bitmap = await createImageBitmap(blob);
+  const tex    = device.createTexture({
+    size:  [bitmap.width, bitmap.height],
+    format: 'rgba8unorm',
+    usage:  GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT,
+  });
+  device.queue.copyExternalImageToTexture(
+    { source: bitmap, flipY: true },
+    { texture: tex },
+    [bitmap.width, bitmap.height],
+  );
+  return tex;
+}
+
+function ensureTextures(device: GPUDevice): Promise<{ albedo: GPUTexture; normal: GPUTexture }> {
+  if (!_texPromise) {
+    _texPromise = Promise.all([
+      loadGpuTexture(device, albedoUrl),
+      loadGpuTexture(device, normalUrl),
+    ]).then(([albedo, normal]) => ({ albedo, normal }));
+  }
+  return _texPromise;
+}
 
 export class ClothModel extends PlaneModel {
   private scratchFaces: Float32Array | null = null;
 
   constructor(readonly seed = 0) { super(); }
-
-  protected override faceTextureVariant(): OrgVariant { return 'membrane'; }
-  protected override faceTextureSeed():    number      { return PAGE_SEED + this.seed * 31337; }
 
   override init(device: GPUDevice): void {
     const data = this.buildEdges();
@@ -28,9 +58,10 @@ export class ClothModel extends PlaneModel {
     this.edgeBuffer.unmap();
   }
 
-  override initFaces(device: GPUDevice, bgl: GPUBindGroupLayout): void {
-    const faces      = this._buildFaces(0, 0);
-    this.faceCount   = faces.length / 24;
+  override async initFaces(device: GPUDevice, bgl: GPUBindGroupLayout): Promise<void> {
+    const faces       = this._buildFaces(0, 0);
+    // 11 floats/vert × 3 verts/tri
+    this.faceCount    = faces.length / (FLOATS_PER_VERT * 3);
     this.scratchFaces = new Float32Array(faces.length);
     this.faceBuffer   = device.createBuffer({
       size:  faces.byteLength,
@@ -39,11 +70,18 @@ export class ClothModel extends PlaneModel {
     });
     new Float32Array(this.faceBuffer.getMappedRange()).set(faces);
     this.faceBuffer.unmap();
-    const tex     = OrganicTextureGen.generate(device, 256, this.faceTextureSeed(), this.faceTextureVariant());
-    const sampler = device.createSampler({ magFilter: 'linear', minFilter: 'linear', addressModeU: 'repeat', addressModeV: 'repeat' });
+
+    const { albedo, normal } = await ensureTextures(device);
+    const sampler = device.createSampler({
+      magFilter: 'linear', minFilter: 'linear',
+    });
     this.faceBindGroup = device.createBindGroup({
       layout: bgl,
-      entries: [{ binding: 0, resource: sampler }, { binding: 1, resource: tex.createView() }],
+      entries: [
+        { binding: 0, resource: sampler },
+        { binding: 1, resource: albedo.createView() },
+        { binding: 2, resource: normal.createView() },
+      ],
     });
   }
 
@@ -70,45 +108,28 @@ export class ClothModel extends PlaneModel {
     if (!this.scratchFaces || !this.faceBuffer) return;
     const faces = this._buildFaces(t, entropy, nodeVel);
     this.scratchFaces.set(faces);
-    device.queue.writeBuffer(this.faceBuffer, 0, this.scratchFaces);
+    device.queue.writeBuffer(this.faceBuffer, 0, this.scratchFaces as Float32Array<ArrayBuffer>);
   }
 
-  private _buildFaces(t: number, entropy: number, nodeVel?: [number, number, number]): Float32Array {
-    const ts  = t * 0.001;
-    const s   = this.seed;
-
-    // Amplitude: entropy factor + velocity boost
-    const velMag    = nodeVel ? Math.sqrt(nodeVel[0] ** 2 + nodeVel[1] ** 2 + nodeVel[2] ** 2) : 0;
-    const entFactor = Math.min(1.0, entropy / 3.5);
-    const amp       = (0.04 + entFactor * 0.32) * (1 + Math.min(velMag, 6.0) * 0.05);
-
-    // Velocity-driven phase offset: wave lags behind movement direction
-    const pvx = nodeVel ? nodeVel[0] * 0.7 : 0;
-    const pvy = nodeVel ? nodeVel[1] * 0.7 : 0;
-
-    const NV = N + 1;
+  // t, entropy, nodeVel kept for API compatibility but plane is flat — volume comes from normal map.
+  private _buildFaces(_t: number, _entropy: number, _nodeVel?: [number, number, number]): Float32Array {
+    const NV  = N + 1;
     const pos = new Float32Array(NV * NV * 3);
     const uvs = new Float32Array(NV * NV * 2);
 
     for (let iy = 0; iy <= N; iy++) {
       for (let ix = 0; ix <= N; ix++) {
         const u = ix / N, v = iy / N;
-        const x = (u - 0.5) * SIZE, y = (v - 0.5) * SIZE;
-        // Two crossing wave modes with per-seed phase offsets
-        const dz = amp * (
-          Math.sin(6.2 * x + 0.80 * ts + pvx + s)       * Math.cos(5.0 * y + 0.66 * ts + pvy + s * 0.7) * 0.58 +
-          Math.sin(9.1 * y - 1.10 * ts + s * 1.3)        * Math.cos(7.4 * x + 0.90 * ts       + s * 0.4) * 0.42
-        );
         const vi = iy * NV + ix;
-        pos[vi * 3]     = x;
-        pos[vi * 3 + 1] = y;
-        pos[vi * 3 + 2] = dz;
+        pos[vi * 3]     = (u - 0.5) * SIZE;
+        pos[vi * 3 + 1] = (v - 0.5) * SIZE;
+        pos[vi * 3 + 2] = 0;
         uvs[vi * 2]     = u;
         uvs[vi * 2 + 1] = v;
       }
     }
 
-    // Accumulate per-vertex normals from surrounding triangles
+    // Per-vertex geometry normals (accumulate face normals, then normalize)
     const nrm = new Float32Array(NV * NV * 3);
     const addTri = (a: number, b: number, c: number) => {
       const ax = pos[a*3], ay = pos[a*3+1], az = pos[a*3+2];
@@ -129,8 +150,26 @@ export class ClothModel extends PlaneModel {
       nrm[i*3] /= l; nrm[i*3+1] /= l; nrm[i*3+2] /= l;
     }
 
-    // Emit interleaved [pos(3) nrm(3) uv(2)] × 3 verts per triangle
-    const out = new Float32Array(N * N * 6 * 8);
+    // Per-vertex tangents — derivative of position along the U (ix) direction.
+    // Uses central differences for interior vertices, forward/backward at edges.
+    const tan = new Float32Array(NV * NV * 3);
+    for (let iy = 0; iy <= N; iy++) {
+      for (let ix = 0; ix <= N; ix++) {
+        const vi = iy * NV + ix;
+        const vL = iy * NV + Math.max(ix - 1, 0);
+        const vR = iy * NV + Math.min(ix + 1, N);
+        let tx = pos[vR*3]   - pos[vL*3];
+        let ty = pos[vR*3+1] - pos[vL*3+1];
+        let tz = pos[vR*3+2] - pos[vL*3+2];
+        const tl = Math.sqrt(tx*tx + ty*ty + tz*tz) || 1;
+        tan[vi*3]   = tx / tl;
+        tan[vi*3+1] = ty / tl;
+        tan[vi*3+2] = tz / tl;
+      }
+    }
+
+    // Emit interleaved [pos(3) nrm(3) uv(2) tan(3)] × 3 verts per triangle
+    const out = new Float32Array(N * N * 6 * FLOATS_PER_VERT);
     let off = 0;
     for (let iy = 0; iy < N; iy++) {
       for (let ix = 0; ix < N; ix++) {
@@ -139,6 +178,7 @@ export class ClothModel extends PlaneModel {
           out[off++] = pos[vi*3];   out[off++] = pos[vi*3+1]; out[off++] = pos[vi*3+2];
           out[off++] = nrm[vi*3];   out[off++] = nrm[vi*3+1]; out[off++] = nrm[vi*3+2];
           out[off++] = uvs[vi*2];   out[off++] = uvs[vi*2+1];
+          out[off++] = tan[vi*3];   out[off++] = tan[vi*3+1]; out[off++] = tan[vi*3+2];
         }
       }
     }
