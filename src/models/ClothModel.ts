@@ -8,7 +8,7 @@ import albedoUrl from '../x.png';
 import normalUrl from '../x-normal.png';
 
 const N    = 10;   // grid subdivisions → (N+1)² verts, 2N² triangles
-const SIZE = 1.0;  // side length in local units (±0.5)
+const SIZE = 6.0;  // side length in local units (±1.0)
 const FLOATS_PER_VERT = 11; // pos(3) + nrm(3) + uv(2) + tangent(3)
 
 // Shared texture promise — loaded once, reused across all instances.

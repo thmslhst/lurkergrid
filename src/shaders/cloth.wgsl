@@ -55,6 +55,7 @@ fn fs(in : VOut) -> @location(0) vec4<f32> {
   let albedoSample = textureSample(albedoTex, orgSampler, in.uv);
   let albedo = albedoSample.rgb;
   let alpha  = albedoSample.a * node.color.a;
+  if (alpha < 0.05) { discard; }
 
   // Decode normal map from [0,1] → [-1,1] (OpenGL / Y-up convention)
   let nMapSample = textureSample(normalTex, orgSampler, in.uv).rgb * 2.0 - 1.0;
