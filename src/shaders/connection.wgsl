@@ -1,9 +1,7 @@
 struct Uniforms {
   viewProj : mat4x4<f32>,
 }
-@group(0) @binding(0) var<uniform> u        : Uniforms;
-@group(1) @binding(0) var connSampler       : sampler;
-@group(1) @binding(1) var connTexture       : texture_2d<f32>;
+@group(0) @binding(0) var<uniform> u : Uniforms;
 
 struct VOut {
   @builtin(position) pos : vec4<f32>,
@@ -23,6 +21,7 @@ fn vs(
 
 @fragment
 fn fs(in : VOut) -> @location(0) vec4<f32> {
-  let tex = textureSample(connTexture, connSampler, in.uv);
-  return vec4<f32>(tex.rgb, 1.0);
+  let t     = fract(in.uv.x * 0.35);
+  let alpha = sin(t * 3.14159265) * 0.35 + 0.08;
+  return vec4<f32>(0.52, 0.55, 0.60, alpha);
 }

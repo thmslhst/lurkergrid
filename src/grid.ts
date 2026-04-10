@@ -1,7 +1,6 @@
 // Grid layout — derives world-space cell positions from camera/viewport parameters.
 // The visible world-space extent at z=0 is computed from the camera's vertical FOV,
 // orbital radius, and canvas aspect ratio. Node home positions snap to cell centres.
-import { PlaneModel } from './models/PlaneModel';
 import type { vec3 } from './math';
 
 export interface GridConfig {
@@ -52,44 +51,3 @@ export function gridHomePositions(cfg: GridConfig, jitterFactor = 0): vec3[] {
   return out;
 }
 
-/**
- * PlaneModel subclass that produces the grid line geometry.
- * Lines lie in the z = 0 plane, matching the node home-position layout exactly.
- * Call reinit() after a viewport resize to rebuild the GPU buffer.
- */
-export class GridModel extends PlaneModel {
-  private cfg: GridConfig;
-
-  constructor(cfg: GridConfig) {
-    super();
-    this.cfg = cfg;
-  }
-
-  updateConfig(cfg: GridConfig): void {
-    this.cfg = cfg;
-  }
-
-  buildEdges(): Float32Array {
-    const { halfW, halfH, stepX, stepY } = extent(this.cfg);
-    const { cols, rows } = this.cfg;
-    const verts: number[] = [];
-
-    // Horizontal lines — (rows + 1) lines along the x axis
-    for (let r = 0; r <= rows; r++) {
-      const y = -halfH + r * stepY;
-      verts.push(-halfW, y, 0,  halfW, y, 0);
-    }
-    // Vertical lines — (cols + 1) lines along the y axis
-    for (let c = 0; c <= cols; c++) {
-      const x = -halfW + c * stepX;
-      verts.push(x, -halfH, 0,  x, halfH, 0);
-    }
-    return new Float32Array(verts);
-  }
-
-  /** Destroy the old GPU buffer and rebuild from current config. */
-  reinit(device: GPUDevice): void {
-    this.edgeBuffer?.destroy();
-    this.init(device);
-  }
-}

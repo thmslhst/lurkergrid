@@ -7,7 +7,7 @@ import type { Camera }       from './camera';
 import type { Renderer }     from './renderer';
 import type { Scene }        from './scene';
 import { Node }              from './node';
-import type { KaryoteModel } from './models/KaryoteModel';
+import type { SphereModel } from './models/SphereModel';
 
 export const MAX_NODES = 32;
 const SPAWN_INTERVAL_MS  = 900;   // average ms between new slot attempts
@@ -50,7 +50,7 @@ export class ModelSpawner {
     private canvas:    HTMLCanvasElement,
     private renderer:  Renderer,
     private scene:     Scene,
-    private modelPool: KaryoteModel[],
+    private modelPool: SphereModel[],
     private nodeColor: [number, number, number, number],
   ) {
     this.overlay = document.getElementById('spawn-overlay') as HTMLElement;

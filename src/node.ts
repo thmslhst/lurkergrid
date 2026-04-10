@@ -1,8 +1,12 @@
 import { translationMatrix, mat4Multiply, quatToMat4, type vec3, type mat4 } from './math';
-import type { PlaneModel } from './models/PlaneModel';
 import { type PhysicsState, makePhysicsState } from './physics';
 
 type vec4 = [number, number, number, number];
+
+export interface IModel {
+  edgeBuffer: GPUBuffer;
+  edgeCount: number;
+}
 
 // 16 floats (world mat4) + 4 floats (color vec4) = 80 bytes
 const UNIFORM_BYTES = 80;
@@ -10,7 +14,7 @@ const UNIFORM_BYTES = 80;
 export class Node {
   readonly physics: PhysicsState;
   readonly color: vec4;
-  readonly model: PlaneModel;
+  readonly model: IModel;
   /** Multiplied into color.a at draw time — used for fade-in / fade-out (0 → 1). */
   alphaScale = 1.0;
   /** Number of active connections — updated by Scene.buildConnections() each frame. */
@@ -20,7 +24,7 @@ export class Node {
   private uniformBuffer!: GPUBuffer;
   private bindGroup!: GPUBindGroup;
 
-  constructor(model: PlaneModel, home: vec3, color: vec4, seed: number) {
+  constructor(model: IModel, home: vec3, color: vec4, seed: number) {
     this.model   = model;
     this.color   = color;
     this.physics = makePhysicsState(home, seed);
@@ -57,14 +61,5 @@ export class Node {
     passEncoder.setBindGroup(1, this.bindGroup);
     passEncoder.setVertexBuffer(0, this.model.edgeBuffer);
     passEncoder.draw(this.model.edgeCount * 2);
-  }
-
-  drawFaces(passEncoder: GPURenderPassEncoder): void {
-    if (!this.model.faceBuffer || !this.model.faceBindGroup) return;
-    this.writeUniforms();
-    passEncoder.setBindGroup(1, this.bindGroup);
-    passEncoder.setBindGroup(2, this.model.faceBindGroup);
-    passEncoder.setVertexBuffer(0, this.model.faceBuffer);
-    passEncoder.draw(this.model.faceCount * 3);
   }
 }

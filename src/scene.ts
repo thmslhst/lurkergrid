@@ -102,7 +102,7 @@ export class Scene {
   }
 
   private buildConnections(): void {
-    // Reset connection counts so the karyote shader can vary emission per node
+    // Reset connection counts
     for (const node of this.nodes) node.connectionCount = 0;
 
     this.connections = [];

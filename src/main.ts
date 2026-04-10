@@ -1,13 +1,12 @@
 import { Renderer }      from './renderer';
 import { Camera }        from './camera';
 import { Scene }         from './scene';
-import { KaryoteModel }  from './models/KaryoteModel';
-import { OrganicTextureGen, PAGE_SEED } from './OrganicTextureGen';
+import { SphereModel }   from './models/SphereModel';
 import { type GridConfig } from './grid';
 import { ModelSpawner }  from './ModelSpawner';
 
 type vec4 = [number, number, number, number];
-const NODE_COLOR: vec4 = [0.06, 0.06, 0.06, 1.0];
+const NODE_COLOR: vec4 = [0.72, 0.74, 0.78, 1.0];
 
 // Grid extent helpers (mirrors grid.ts logic without importing GridModel)
 function halfExtents(cfg: GridConfig): { halfW: number; halfH: number } {
@@ -28,26 +27,13 @@ async function main(): Promise<void> {
   const renderer = new Renderer();
   await renderer.init(canvas);
 
-  // Pool of 32 karyote instances — each gets a unique per-instance modulation texture.
-  // initFaces is async: fetches shared x.png + x-normal.png (cached after first call)
-  // and generates a synchronous OrganicTextureGen modulation map per seed.
-  const modelPool: KaryoteModel[] = [];
-  for (let seed = 0; seed < 32; seed++) {
-    const m = new KaryoteModel(seed);
+  // Pool of 32 sphere instances shared across nodes
+  const modelPool: SphereModel[] = [];
+  for (let i = 0; i < 32; i++) {
+    const m = new SphereModel();
     m.init(renderer.device);
-    await m.initFaces(renderer.device, renderer.karyoteTexBindGroupLayout);
     modelPool.push(m);
   }
-  // Connections use their own organic texture — independent of the karyote textures.
-  const connTex     = OrganicTextureGen.generate(renderer.device, 256, PAGE_SEED, 'membrane');
-  const connSampler = renderer.device.createSampler({ magFilter: 'linear', minFilter: 'linear' });
-  renderer.connTextureBindGroup = renderer.device.createBindGroup({
-    layout: renderer.texBindGroupLayout,
-    entries: [
-      { binding: 0, resource: connSampler },
-      { binding: 1, resource: connTex.createView() },
-    ],
-  });
 
   const camera = new Camera(canvas.width / canvas.height);
 
