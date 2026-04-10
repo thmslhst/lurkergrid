@@ -5,6 +5,7 @@ import { mat4Multiply } from './math';
 import type { Scene }  from './scene';
 import type { Camera } from './camera';
 import { FLOATS_PER_CONN, VERTS_PER_CONN } from './connection';
+import { PostProcess } from './PostProcess';
 
 // Up to ~40 nodes transiently (evictions fade out over 120ms before removal)
 // 40*39/2 = 780 — give headroom above the 32-node steady state
@@ -14,8 +15,8 @@ const MSAA_COUNT = 4;
 export class Renderer {
   device!: GPUDevice;
   nodeBindGroupLayout!:  GPUBindGroupLayout;
-  texBindGroupLayout!:      GPUBindGroupLayout;  // sampler(b0) + texture(b1) — for connections
-  karyoteTexBindGroupLayout!: GPUBindGroupLayout; // sampler(b0) + albedo(b1) + normalMap(b2) + modulation(b3)
+  texBindGroupLayout!:        GPUBindGroupLayout;  // sampler(b0) + texture(b1) — for connections
+  karyoteTexBindGroupLayout!: GPUBindGroupLayout;  // sampler(b0) + albedo(b1) + normalMap(b2)
 
   connTextureBindGroup: GPUBindGroup | null = null;
 
@@ -27,9 +28,10 @@ export class Renderer {
   private sharedBindGroup!: GPUBindGroup;
   private connVertexBuffer!: GPUBuffer;
   private connScratch = new Float32Array(MAX_CONNECTIONS * FLOATS_PER_CONN);
-  private depthTexture!: GPUTexture;
-  private msaaTexture!:  GPUTexture;
-  private canvasFormat!: GPUTextureFormat;
+  private depthTexture!:  GPUTexture;
+  private msaaTexture!:   GPUTexture;
+  private canvasFormat!:  GPUTextureFormat;
+  private postProcess!:   PostProcess;
   private sharedScratch = new Float32Array(20); // 16 viewProj + 4 camPos
 
   async init(canvas: HTMLCanvasElement): Promise<void> {
@@ -41,6 +43,8 @@ export class Renderer {
     this.canvasFormat = navigator.gpu.getPreferredCanvasFormat();
     this.context.configure({ device: this.device, format: this.canvasFormat, alphaMode: 'opaque' });
 
+    this.postProcess = new PostProcess();
+    this.postProcess.init(this.device, this.canvasFormat);
     this.initDepth(canvas.width, canvas.height);
     this.initPipelines();
   }
@@ -58,6 +62,7 @@ export class Renderer {
       size: [w, h], format: this.canvasFormat, sampleCount: MSAA_COUNT,
       usage: GPUTextureUsage.RENDER_ATTACHMENT,
     });
+    this.postProcess.resize(w, h);
   }
 
   private initPipelines(): void {
@@ -78,7 +83,6 @@ export class Renderer {
         { binding: 0, visibility: GPUShaderStage.FRAGMENT, sampler: {} },
         { binding: 1, visibility: GPUShaderStage.FRAGMENT, texture: {} },
         { binding: 2, visibility: GPUShaderStage.FRAGMENT, texture: {} },
-        { binding: 3, visibility: GPUShaderStage.FRAGMENT, texture: {} },
       ],
     });
 
@@ -162,20 +166,23 @@ export class Renderer {
   }
 
   frame(scene: Scene, camera: Camera, t: number, gridNode?: import('./node').Node): void {
-    const viewProj = mat4Multiply(camera.projMatrix(), camera.viewMatrix());
-    const camPos   = camera.position();
-    this.sharedScratch.set(viewProj, 0);
+    const camPos = camera.position();
+    this.sharedScratch.set(mat4Multiply(camera.projMatrix(), camera.viewMatrix()), 0);
     this.sharedScratch[16] = camPos[0];
     this.sharedScratch[17] = camPos[1];
     this.sharedScratch[18] = camPos[2];
     this.sharedScratch[19] = 1.0;
     this.device.queue.writeBuffer(this.sharedUniformBuffer, 0, this.sharedScratch);
 
-    const encoder = this.device.createCommandEncoder();
+    // Acquire canvas view once — used as the distortion pass's render target.
+    const canvasView = this.context.getCurrentTexture().createView();
+    const encoder    = this.device.createCommandEncoder();
+
+    // Pass 1 — scene → offscreen (MSAA-resolved), ready for post-processing
     const pass = encoder.beginRenderPass({
       colorAttachments: [{
         view:          this.msaaTexture.createView(),
-        resolveTarget: this.context.getCurrentTexture().createView(),
+        resolveTarget: this.postProcess.resolveTarget(),
         clearValue: { r: 0, g: 0, b: 0, a: 1 },
         loadOp: 'clear', storeOp: 'discard',
       }],
@@ -185,7 +192,6 @@ export class Renderer {
       },
     });
 
-    // 1 — Connections (textured, no depth, always through)
     const connCount = scene.buildConnGeometry(this.connScratch, t);
     if (connCount > 0 && this.connTextureBindGroup) {
       this.device.queue.writeBuffer(this.connVertexBuffer, 0, this.connScratch.subarray(0, connCount * FLOATS_PER_CONN));
@@ -196,19 +202,20 @@ export class Renderer {
       pass.draw(connCount * VERTS_PER_CONN);
     }
 
-    // 2 — Karyote lit faces — entropy + t feed per-node distortion uniforms
     pass.setPipeline(this.texPipeline);
     pass.setBindGroup(0, this.sharedBindGroup);
-    for (const node of scene.nodes) node.drawFaces(pass, scene.entropy, t);
+    for (const node of scene.nodes) node.drawFaces(pass);
 
-    // 3 — Grid lines (static wireframe)
     if (gridNode) {
       pass.setPipeline(this.wirePipeline);
       pass.setBindGroup(0, this.sharedBindGroup);
       gridNode.draw(pass);
     }
-
     pass.end();
+
+    // Pass 2 — post-process distortion → canvas
+    this.postProcess.frame(encoder, canvasView, scene, camera);
+
     this.device.queue.submit([encoder.finish()]);
   }
 }

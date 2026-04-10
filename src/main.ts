@@ -81,10 +81,6 @@ async function main(): Promise<void> {
     camera.tick(dt);
     scene.tick(dt, now);
     spawner.tick(dt, camera);
-    // Tick models that are currently active
-    for (const node of scene.nodes) {
-      (node.model as KaryoteModel).tick(renderer.device, now, scene.entropy * scene.chaosBoost, node.physics.vel);
-    }
     renderer.frame(scene, camera, now);
     requestAnimationFrame(loop);
   }

@@ -4,8 +4,8 @@ import { type PhysicsState, makePhysicsState } from './physics';
 
 type vec4 = [number, number, number, number];
 
-// 16 (world) + 4 (color) + 4 (velocity+speed) + 4 (entropy,t,seed,connCount) + 4 (pad) = 32 floats = 128 bytes
-const UNIFORM_BYTES = 128;
+// 16 floats (world mat4) + 4 floats (color vec4) = 80 bytes
+const UNIFORM_BYTES = 80;
 
 export class Node {
   readonly physics: PhysicsState;
@@ -44,21 +44,11 @@ export class Node {
     return mat4Multiply(t, r);
   }
 
-  private writeUniforms(entropy = 0, t = 0): void {
-    const data = new Float32Array(32); // 128 bytes
-    data.set(this.worldMatrix(), 0);   // world mat4  — floats 0-15
-    data.set(this.color, 16);          // color vec4  — floats 16-19
+  private writeUniforms(): void {
+    const data = new Float32Array(20);
+    data.set(this.worldMatrix(), 0);
+    data.set(this.color, 16);
     data[19] = this.color[3] * this.alphaScale;
-    // velocity vec4: xyz + speed magnitude — floats 20-23
-    const vel = this.physics.vel;
-    const speed = Math.sqrt(vel[0] ** 2 + vel[1] ** 2 + vel[2] ** 2);
-    data[20] = vel[0]; data[21] = vel[1]; data[22] = vel[2]; data[23] = speed;
-    // params vec4: entropy, t_ms, seed, connCount — floats 24-27
-    data[24] = entropy;
-    data[25] = t;
-    data[26] = this.physics.seed;
-    data[27] = this.connectionCount;
-    // floats 28-31: padding (struct must be 128-byte aligned)
     this.device.queue.writeBuffer(this.uniformBuffer, 0, data);
   }
 
@@ -69,9 +59,9 @@ export class Node {
     passEncoder.draw(this.model.edgeCount * 2);
   }
 
-  drawFaces(passEncoder: GPURenderPassEncoder, entropy: number, t: number): void {
+  drawFaces(passEncoder: GPURenderPassEncoder): void {
     if (!this.model.faceBuffer || !this.model.faceBindGroup) return;
-    this.writeUniforms(entropy, t);
+    this.writeUniforms();
     passEncoder.setBindGroup(1, this.bindGroup);
     passEncoder.setBindGroup(2, this.model.faceBindGroup);
     passEncoder.setVertexBuffer(0, this.model.faceBuffer);
