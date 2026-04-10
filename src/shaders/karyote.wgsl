@@ -64,16 +64,20 @@ fn fs(in : VOut) -> @location(0) vec4<f32> {
   // Two-sided: flip toward camera so back faces light correctly
   N = select(N, -N, dot(N, viewDir) < 0.0);
 
-  // Key light — warm overhead
-  let L    = normalize(vec3<f32>(8.0, 12.0, 6.0) - in.worldPos);
+  // Key light — camera-aligned headlight, always faces what the camera sees
+  let L    = viewDir;
   let H    = normalize(L + viewDir);
   let diff = max(dot(N, L), 0.0);
   // Wet membrane: moderately sharp specular
   let spec = pow(max(dot(N, H), 0.0), 52.0) * 0.30;
 
-  // Cool fill light from opposite side
+  // Cool fill — opposite side, left-back
   let fillDir = normalize(vec3<f32>(-0.6, 0.1, -0.8));
-  let fill    = max(dot(N, fillDir), 0.0) * 0.12;
+  let fill    = max(dot(N, fillDir), 0.0) * 0.22;
+
+  // Low fill — from below, prevents bottom faces going completely black
+  let lowDir  = normalize(vec3<f32>(0.1, -1.0, 0.3));
+  let lowFill = max(dot(N, lowDir), 0.0) * 0.18;
 
   // Thin-tissue subsurface: warm back-scatter through the membrane
   let backDiff = max(dot(-N, L), 0.0);
@@ -83,9 +87,10 @@ fn fs(in : VOut) -> @location(0) vec4<f32> {
   let rimFac = pow(1.0 - max(dot(N, viewDir), 0.0), 4.0) * 0.14;
 
   var color = albedo * (
-      vec3<f32>(0.05, 0.05, 0.04)               // ambient
-    + diff * 0.74 * vec3<f32>(0.90, 0.85, 0.78) // warm key diffuse
-    + fill         * vec3<f32>(0.22, 0.34, 0.48) // cool fill
+      vec3<f32>(0.28, 0.27, 0.25)               // ambient — high enough so no face goes black
+    + diff * 0.65 * vec3<f32>(0.90, 0.85, 0.78) // warm key diffuse
+    + fill         * vec3<f32>(0.22, 0.34, 0.48) // cool side fill
+    + lowFill      * vec3<f32>(0.30, 0.28, 0.40) // dim low fill
     + sss          * vec3<f32>(0.88, 0.54, 0.18) // amber subsurface
   )
   + vec3<f32>(0.88, 0.93, 1.00) * spec           // cool specular sheen
