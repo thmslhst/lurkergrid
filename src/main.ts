@@ -1,7 +1,7 @@
 import { Renderer }      from './renderer';
 import { Camera }        from './camera';
 import { Scene }         from './scene';
-import { ClothModel }    from './models/ClothModel';
+import { KaryoteModel }  from './models/KaryoteModel';
 import { OrganicTextureGen, PAGE_SEED } from './OrganicTextureGen';
 import { type GridConfig } from './grid';
 import { ModelSpawner }  from './ModelSpawner';
@@ -28,16 +28,17 @@ async function main(): Promise<void> {
   const renderer = new Renderer();
   await renderer.init(canvas);
 
-  // Pool of 32 morphologically distinct carriers (lazy: models init'd once, nodes spawn later).
-  // initFaces is async — it fetches x.png + x-normal.png (cached after the first call).
-  const modelPool: ClothModel[] = [];
+  // Pool of 32 karyote instances — each gets a unique per-instance modulation texture.
+  // initFaces is async: fetches shared x.png + x-normal.png (cached after first call)
+  // and generates a synchronous OrganicTextureGen modulation map per seed.
+  const modelPool: KaryoteModel[] = [];
   for (let seed = 0; seed < 32; seed++) {
-    const m = new ClothModel(seed);
+    const m = new KaryoteModel(seed);
     m.init(renderer.device);
-    await m.initFaces(renderer.device, renderer.clothTexBindGroupLayout);
+    await m.initFaces(renderer.device, renderer.karyoteTexBindGroupLayout);
     modelPool.push(m);
   }
-  // Connections use their own organic texture — independent of the cloth sprite textures.
+  // Connections use their own organic texture — independent of the karyote textures.
   const connTex     = OrganicTextureGen.generate(renderer.device, 256, PAGE_SEED, 'membrane');
   const connSampler = renderer.device.createSampler({ magFilter: 'linear', minFilter: 'linear' });
   renderer.connTextureBindGroup = renderer.device.createBindGroup({
@@ -82,7 +83,7 @@ async function main(): Promise<void> {
     spawner.tick(dt, camera);
     // Tick models that are currently active
     for (const node of scene.nodes) {
-      (node.model as ClothModel).tick(renderer.device, now, scene.entropy * scene.chaosBoost, node.physics.vel);
+      (node.model as KaryoteModel).tick(renderer.device, now, scene.entropy * scene.chaosBoost, node.physics.vel);
     }
     renderer.frame(scene, camera, now);
     requestAnimationFrame(loop);

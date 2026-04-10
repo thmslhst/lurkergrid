@@ -1,6 +1,6 @@
 import wireframeWGSL  from './shaders/wireframe.wgsl?raw';
 import connectionWGSL from './shaders/connection.wgsl?raw';
-import clothWGSL      from './shaders/cloth.wgsl?raw';
+import karyoteWGSL    from './shaders/karyote.wgsl?raw';
 import { mat4Multiply } from './math';
 import type { Scene }  from './scene';
 import type { Camera } from './camera';
@@ -14,8 +14,8 @@ const MSAA_COUNT = 4;
 export class Renderer {
   device!: GPUDevice;
   nodeBindGroupLayout!:  GPUBindGroupLayout;
-  texBindGroupLayout!:   GPUBindGroupLayout;  // sampler(b0) + texture(b1) — for connections
-  clothTexBindGroupLayout!: GPUBindGroupLayout; // sampler(b0) + albedo(b1) + normalMap(b2) — for cloth faces
+  texBindGroupLayout!:      GPUBindGroupLayout;  // sampler(b0) + texture(b1) — for connections
+  karyoteTexBindGroupLayout!: GPUBindGroupLayout; // sampler(b0) + albedo(b1) + normalMap(b2) + modulation(b3)
 
   connTextureBindGroup: GPUBindGroup | null = null;
 
@@ -73,11 +73,12 @@ export class Renderer {
         { binding: 1, visibility: GPUShaderStage.FRAGMENT, texture:  {} },
       ],
     });
-    this.clothTexBindGroupLayout = this.device.createBindGroupLayout({
+    this.karyoteTexBindGroupLayout = this.device.createBindGroupLayout({
       entries: [
-        { binding: 0, visibility: GPUShaderStage.FRAGMENT, sampler:  {} },
-        { binding: 1, visibility: GPUShaderStage.FRAGMENT, texture:  {} },
-        { binding: 2, visibility: GPUShaderStage.FRAGMENT, texture:  {} },
+        { binding: 0, visibility: GPUShaderStage.FRAGMENT, sampler: {} },
+        { binding: 1, visibility: GPUShaderStage.FRAGMENT, texture: {} },
+        { binding: 2, visibility: GPUShaderStage.FRAGMENT, texture: {} },
+        { binding: 3, visibility: GPUShaderStage.FRAGMENT, texture: {} },
       ],
     });
 
@@ -117,12 +118,12 @@ export class Renderer {
       multisample:  msaa,
     });
 
-    // Textured face pipeline — lit triangles with normal mapping
+    // Karyote face pipeline — bioluminescent organism surface with normal mapping + distortion
     // Vertex layout: [pos(3) normal(3) uv(2) tangent(3)] = 11 floats / 44 bytes
-    const texMod = this.device.createShaderModule({ code: clothWGSL });
+    const texMod = this.device.createShaderModule({ code: karyoteWGSL });
     this.texPipeline = this.device.createRenderPipeline({
       layout: this.device.createPipelineLayout({
-        bindGroupLayouts: [bgl0, this.nodeBindGroupLayout, this.clothTexBindGroupLayout],
+        bindGroupLayouts: [bgl0, this.nodeBindGroupLayout, this.karyoteTexBindGroupLayout],
       }),
       vertex: {
         module: texMod, entryPoint: 'vs',
@@ -195,10 +196,10 @@ export class Renderer {
       pass.draw(connCount * VERTS_PER_CONN);
     }
 
-    // 2 — Textured lit faces
+    // 2 — Karyote lit faces — entropy + t feed per-node distortion uniforms
     pass.setPipeline(this.texPipeline);
     pass.setBindGroup(0, this.sharedBindGroup);
-    for (const node of scene.nodes) node.drawFaces(pass);
+    for (const node of scene.nodes) node.drawFaces(pass, scene.entropy, t);
 
     // 3 — Grid lines (static wireframe)
     if (gridNode) {

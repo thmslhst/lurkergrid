@@ -102,6 +102,9 @@ export class Scene {
   }
 
   private buildConnections(): void {
+    // Reset connection counts so the karyote shader can vary emission per node
+    for (const node of this.nodes) node.connectionCount = 0;
+
     this.connections = [];
     const r2 = CONNECTION_RADIUS * CONNECTION_RADIUS;
     for (let i = 0; i < this.nodes.length; i++) {
@@ -111,6 +114,8 @@ export class Scene {
         const dx = pa[0] - pb[0], dy = pa[1] - pb[1], dz = pa[2] - pb[2];
         if (dx*dx + dy*dy + dz*dz < r2) {
           this.connections.push(new Connection(this.nodes[i], this.nodes[j]));
+          this.nodes[i].connectionCount++;
+          this.nodes[j].connectionCount++;
         }
       }
     }

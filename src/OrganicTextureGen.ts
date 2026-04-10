@@ -4,7 +4,7 @@
 
 export const PAGE_SEED: number = (Math.random() * 0xFFFFFFFF) >>> 0;
 
-export type OrgVariant = 'cellular' | 'veins' | 'membrane';
+export type OrgVariant = 'cellular' | 'veins' | 'membrane' | 'karyote';
 
 function lerp(a: number, b: number, t: number): number { return a + (b - a) * t; }
 function smooth(t: number): number { return t * t * t * (t * (6 * t - 15) + 10); }
@@ -80,6 +80,39 @@ export class OrganicTextureGen {
         Math.floor(lerp(18, 175, Math.pow(t, 0.88))),
         Math.floor(lerp(12, 132, Math.pow(t, 1.05))),
         Math.floor(lerp(6,  62,  Math.pow(t, 1.65))),
+      ];
+    }
+
+    if (variant === 'karyote') {
+      // Cellular modulation map for overlay blending — Voronoi cells with bright nuclei,
+      // organelle speckles, and darker walls. Mid-range values (0.3–0.85) so overlay
+      // preserves the base albedo character while adding per-instance structural variation.
+      const sc = 4.2;
+      const cx = u * sc, cy = v * sc;
+      const xi = Math.floor(cx), yi = Math.floor(cy);
+      let d1 = 999, d2 = 999;
+      let px1 = 0, py1 = 0;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const nx = xi + dx, ny = yi + dy;
+          const px = nx + this.h(nx, ny);
+          const py = ny + this.h(nx + 71, ny + 17);
+          const dist = Math.hypot(cx - px, cy - py);
+          if (dist < d1) { d2 = d1; d1 = dist; px1 = px; py1 = py; }
+          else if (dist < d2) { d2 = dist; }
+        }
+      }
+      const nucDist  = Math.hypot(cx - px1, cy - py1);
+      const nucleus  = clamp01(1.0 - nucDist * 3.0);
+      const organelle = clamp01(Math.max(0, this.fbm(u * 13 + 2.7, v * 13 + 0.9, 3) - 0.62) * 3.2);
+      const cytoFill  = clamp01(1.0 - d1 * 1.5) * 0.55;
+      const wallDark  = clamp01((d2 - d1) * 6.0);          // bright at edges
+      const t = clamp01(nucleus * 0.32 + organelle * 0.28 + cytoFill + wallDark * (-0.18) + 0.22);
+      // Warm amber → chartreuse, mid-range for overlay
+      return [
+        Math.floor(lerp(55,  218, Math.pow(t, 0.78))),
+        Math.floor(lerp(75,  208, Math.pow(t, 0.82))),
+        Math.floor(lerp(12,   72, Math.pow(t, 1.55))),
       ];
     }
 
