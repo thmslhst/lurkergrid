@@ -3,7 +3,7 @@ import { Camera }        from './camera';
 import { Scene }         from './scene';
 import { SphereModel }   from './models/SphereModel';
 import { type GridConfig } from './grid';
-import { ModelSpawner }  from './ModelSpawner';
+import { ModelSpawner }  from './models/ModelSpawner';
 
 type vec4 = [number, number, number, number];
 const NODE_COLOR: vec4 = [0.72, 0.74, 0.78, 1.0];

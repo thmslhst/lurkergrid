@@ -1,9 +1,9 @@
 // ModelSpawner — probabilistic progressive node loading.
-import type { Camera }      from './camera';
-import type { Renderer }    from './renderer';
-import type { Scene }       from './scene';
-import { Node }             from './node';
-import type { SphereModel } from './models/SphereModel';
+import type { Camera }      from '../camera';
+import type { Renderer }    from '../renderer';
+import type { Scene }       from '../scene';
+import { Node }             from '../node';
+import type { SphereModel } from './SphereModel';
 
 export const MAX_NODES = 32;
 const SPAWN_INTERVAL_MS = 900;
