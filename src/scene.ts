@@ -12,6 +12,11 @@ export class Scene {
   connections: Connection[] = [];
   entropy = 0.0;
 
+  /** Keys of connections present last frame — used to detect new connections. */
+  private prevConnKeys = new Set<string>();
+  /** connection key → flash expiry time (ms). Entries older than expiry are done. */
+  private connFlashMap = new Map<string, number>();
+
   // Wind: velocity force applied to all nodes each frame, decays exponentially
   windForce: vec3 = [0, 0, 0];
   // chaosBoost: extra multiplier for entropy-driven effects (filaments, float) — decays → 1
@@ -85,7 +90,7 @@ export class Scene {
     for (const node of this.nodes) {
       integratePhysics(node.physics, dt, t, this.entropy, this.windForce);
     }
-    this.buildConnections();
+    this.buildConnections(t);
   }
 
   buildConnGeometry(scratch: Float32Array, t: number): number {
@@ -101,23 +106,42 @@ export class Scene {
     return count;
   }
 
-  private buildConnections(): void {
+  private buildConnections(t: number): void {
     // Reset connection counts
     for (const node of this.nodes) node.connectionCount = 0;
 
+    // Clean up expired flash entries
+    for (const [key, expiry] of this.connFlashMap) {
+      if (t >= expiry) this.connFlashMap.delete(key);
+    }
+
     this.connections = [];
     const r2 = CONNECTION_RADIUS * CONNECTION_RADIUS;
+    const currKeys = new Set<string>();
+
     for (let i = 0; i < this.nodes.length; i++) {
       for (let j = i + 1; j < this.nodes.length; j++) {
         const pa = this.nodes[i].physics.pos;
         const pb = this.nodes[j].physics.pos;
         const dx = pa[0] - pb[0], dy = pa[1] - pb[1], dz = pa[2] - pb[2];
         if (dx*dx + dy*dy + dz*dz < r2) {
-          this.connections.push(new Connection(this.nodes[i], this.nodes[j]));
+          const key = `${this.nodes[i].physics.seed}_${this.nodes[j].physics.seed}`;
+          currKeys.add(key);
+
+          // New connection this frame → start a 100 ms blue flash
+          if (!this.prevConnKeys.has(key)) {
+            this.connFlashMap.set(key, t + 100);
+          }
+
+          const conn = new Connection(this.nodes[i], this.nodes[j]);
+          if (this.connFlashMap.has(key)) conn.flash = 1;
+          this.connections.push(conn);
           this.nodes[i].connectionCount++;
           this.nodes[j].connectionCount++;
         }
       }
     }
+
+    this.prevConnKeys = currKeys;
   }
 }

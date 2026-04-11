@@ -2,15 +2,17 @@ import type { Node } from './node';
 
 export const CONNECTION_RADIUS = 8.0;
 
-// 12 line segments per connection → 24 vertices (line-list) × 5 floats (xyz + uv)
+// 12 line segments per connection → 24 vertices (line-list) × 6 floats (xyz + uv + flash)
 const SEGMENTS = 12;
 export const VERTS_PER_CONN  = SEGMENTS * 2;
-export const FLOATS_PER_CONN = VERTS_PER_CONN * 5;
+export const FLOATS_PER_CONN = VERTS_PER_CONN * 6;
 
 export class Connection {
   readonly a: Node;
   readonly b: Node;
   readonly seed: number;
+  /** 1.0 while the connection is newly formed (blue flash), 0.0 otherwise. */
+  flash = 0;
 
   constructor(a: Node, b: Node) {
     this.a    = a;
@@ -84,14 +86,15 @@ export class Connection {
 
     // Walk the curve keeping previous sample to form line-list segments
     let prev = computeVertex(0);
+    const fl = this.flash;
 
     for (let i = 1; i <= SEGMENTS; i++) {
       const cur = computeVertex(i / SEGMENTS);
-      const o = offset + (i - 1) * 10; // 2 verts × 5 floats = 10 floats per segment
-      buf[o+0] = prev[0]; buf[o+1] = prev[1]; buf[o+2] = prev[2];
-      buf[o+3] = prev[3]; buf[o+4] = prev[4];
-      buf[o+5] = cur[0];  buf[o+6] = cur[1];  buf[o+7] = cur[2];
-      buf[o+8] = cur[3];  buf[o+9] = cur[4];
+      const o = offset + (i - 1) * 12; // 2 verts × 6 floats = 12 floats per segment
+      buf[o+0]  = prev[0]; buf[o+1]  = prev[1]; buf[o+2]  = prev[2];
+      buf[o+3]  = prev[3]; buf[o+4]  = prev[4]; buf[o+5]  = fl;
+      buf[o+6]  = cur[0];  buf[o+7]  = cur[1];  buf[o+8]  = cur[2];
+      buf[o+9]  = cur[3];  buf[o+10] = cur[4];  buf[o+11] = fl;
       prev = cur;
     }
   }

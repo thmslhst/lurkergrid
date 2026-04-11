@@ -96,9 +96,10 @@ export class Renderer {
       layout: this.device.createPipelineLayout({ bindGroupLayouts: [bgl0] }),
       vertex: {
         module: connMod, entryPoint: 'vs',
-        buffers: [{ arrayStride: 20, attributes: [
+        buffers: [{ arrayStride: 24, attributes: [
           { shaderLocation: 0, offset: 0,  format: 'float32x3' },  // pos
           { shaderLocation: 1, offset: 12, format: 'float32x2' },  // uv
+          { shaderLocation: 2, offset: 20, format: 'float32'   },  // flash
         ]}],
       },
       fragment: {
