@@ -17,6 +17,8 @@ export class Node {
   readonly model: IModel;
   /** Multiplied into color.a at draw time — used for fade-in / fade-out (0 → 1). */
   alphaScale = 1.0;
+  /** When true, renders yellow instead of the node's normal color. */
+  isSpawnFlashing = false;
   /** Number of active connections — updated by Scene.buildConnections() each frame. */
   connectionCount = 0;
 
@@ -51,8 +53,12 @@ export class Node {
   private writeUniforms(): void {
     const data = new Float32Array(20);
     data.set(this.worldMatrix(), 0);
-    data.set(this.color, 16);
-    data[19] = this.color[3] * this.alphaScale;
+    if (this.isSpawnFlashing) {
+      data.set([1, 1, 0, this.color[3] * this.alphaScale], 16);
+    } else {
+      data.set(this.color, 16);
+      data[19] = this.color[3] * this.alphaScale;
+    }
     this.device.queue.writeBuffer(this.uniformBuffer, 0, data);
   }
 

@@ -11,7 +11,6 @@ const MIN_WINDOW_MS     = 1200;
 const MAX_WINDOW_MS     = 4000;
 const MIN_PROB          = 0.15;
 const MAX_PROB          = 0.94;
-const FADE_IN_MS        = 550;
 const FADE_OUT_MS       = 120;
 
 interface Fading {
@@ -88,9 +87,9 @@ export class ModelSpawner {
     const node  = new Node(model, worldPos, [...this.nodeColor] as [number,number,number,number], this.seed * 1.7);
     this.seed++;
     node.init(this.renderer.device, this.renderer.nodeBindGroupLayout);
-    node.alphaScale = 0;
+    node.isSpawnFlashing = true;
+    setTimeout(() => { node.isSpawnFlashing = false; }, 100);
     this.scene.addNode(node);
     this.scene.triggerSpawnChaos(worldPos);
-    this.fading.push({ node, elapsed: 0, total: FADE_IN_MS, from: 0, to: 1 });
   }
 }
