@@ -1,4 +1,4 @@
-import wireframeWGSL  from './shaders/wireframe.wgsl?raw';
+import solidWGSL      from './shaders/solid.wgsl?raw';
 import connectionWGSL from './shaders/connection.wgsl?raw';
 import { mat4Multiply } from './math';
 import type { Scene }  from './scene';
@@ -15,7 +15,7 @@ export class Renderer {
   nodeBindGroupLayout!: GPUBindGroupLayout;
 
   private context!: GPUCanvasContext;
-  private wirePipeline!:  GPURenderPipeline;
+  private solidPipeline!: GPURenderPipeline;
   private connPipeline!:  GPURenderPipeline;
   private sharedUniformBuffer!: GPUBuffer;
   private sharedBindGroup!: GPUBindGroup;
@@ -64,16 +64,28 @@ export class Renderer {
 
     const msaa = { count: MSAA_COUNT };
 
-    // Wireframe pipeline (nodes)
-    const wireMod = this.device.createShaderModule({ code: wireframeWGSL });
-    this.wirePipeline = this.device.createRenderPipeline({
+    // Solid pipeline (nodes) — triangle-list with pos + normal
+    const solidMod = this.device.createShaderModule({ code: solidWGSL });
+    this.solidPipeline = this.device.createRenderPipeline({
       layout: this.device.createPipelineLayout({ bindGroupLayouts: [bgl0, this.nodeBindGroupLayout] }),
       vertex: {
-        module: wireMod, entryPoint: 'vs',
-        buffers: [{ arrayStride: 12, attributes: [{ shaderLocation: 0, offset: 0, format: 'float32x3' }] }],
+        module: solidMod, entryPoint: 'vs',
+        buffers: [{
+          arrayStride: 24,
+          attributes: [
+            { shaderLocation: 0, offset:  0, format: 'float32x3' }, // position
+            { shaderLocation: 1, offset: 12, format: 'float32x3' }, // normal
+          ],
+        }],
       },
-      fragment: { module: wireMod, entryPoint: 'fs', targets: [{ format: this.canvasFormat }] },
-      primitive:    { topology: 'line-list' },
+      fragment: {
+        module: solidMod, entryPoint: 'fs',
+        targets: [{ format: this.canvasFormat, blend: {
+          color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+          alpha: { srcFactor: 'one',       dstFactor: 'zero',                operation: 'add' },
+        }}],
+      },
+      primitive:    { topology: 'triangle-list', cullMode: 'back' },
       depthStencil: { format: 'depth24plus', depthWriteEnabled: true, depthCompare: 'less-equal' },
       multisample:  msaa,
     });
@@ -145,7 +157,7 @@ export class Renderer {
       pass.draw(connCount * VERTS_PER_CONN);
     }
 
-    pass.setPipeline(this.wirePipeline);
+    pass.setPipeline(this.solidPipeline);
     pass.setBindGroup(0, this.sharedBindGroup);
     for (const node of scene.nodes) node.draw(pass);
 

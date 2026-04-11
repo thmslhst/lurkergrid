@@ -4,8 +4,8 @@ import { type PhysicsState, makePhysicsState } from './physics';
 type vec4 = [number, number, number, number];
 
 export interface IModel {
-  edgeBuffer: GPUBuffer;
-  edgeCount: number;
+  vertexBuffer: GPUBuffer;
+  vertexCount:  number;
 }
 
 // 16 floats (world mat4) + 4 floats (color vec4) = 80 bytes
@@ -59,7 +59,7 @@ export class Node {
   draw(passEncoder: GPURenderPassEncoder): void {
     this.writeUniforms();
     passEncoder.setBindGroup(1, this.bindGroup);
-    passEncoder.setVertexBuffer(0, this.model.edgeBuffer);
-    passEncoder.draw(this.model.edgeCount * 2);
+    passEncoder.setVertexBuffer(0, this.model.vertexBuffer);
+    passEncoder.draw(this.model.vertexCount);
   }
 }
