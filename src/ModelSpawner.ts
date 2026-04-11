@@ -43,6 +43,16 @@ export class ModelSpawner {
 
   tick(dt: number, _camera: Camera): void {
     this.tickFading(dt);
+
+    // Fill up to MAX_NODES immediately before switching to the timed behaviour.
+    if (this.scene.nodes.length < MAX_NODES) {
+      const x = (Math.random() * 2 - 1) * this.halfW;
+      const y = (Math.random() * 2 - 1) * this.halfH;
+      const z = (Math.random() - 0.5) * 1.5;
+      this.spawnNode([x, y, z]);
+      return;
+    }
+
     this.timer -= dt;
     if (this.timer <= 0) {
       this.timer = SPAWN_INTERVAL_MS * (0.5 + Math.random());
