@@ -47,7 +47,7 @@ async function main(): Promise<void> {
 
   const scene   = new Scene();
   const { halfW, halfH } = halfExtents(gridCfg);
-  const spawner = new ModelSpawner(canvas, renderer, scene, modelPool, NODE_COLOR);
+  const spawner = new ModelSpawner(renderer, scene, modelPool, NODE_COLOR);
   spawner.updateExtent(halfW, halfH);
 
   window.addEventListener('resize', () => {
