@@ -1,7 +1,7 @@
 import type { AppEvent } from '../events';
 
 const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
-const MAX_LOG = 8;
+const MAX_LOG = 18;
 
 function noteName(note: number): string {
   const oct = Math.floor(note / 12) - 1;
@@ -33,7 +33,8 @@ export class Console {
       const style = document.createElement('style');
       style.id = 'hud-styles';
       style.textContent = `
-        #hud{position:fixed;top:12px;left:12px;width:320px;max-height:260px;overflow:hidden;background:rgba(0,0,0,0.55);font-family:monospace;font-size:11px;color:#ccc;padding:8px 10px}
+        #hud{position:fixed;top:12px;left:12px;width:320px;max-height:640px;overflow:hidden;background:rgba(0,0,0,0.55);font-family:monospace;font-size:11px;color:#ccc;padding:8px 10px}
+        .hud-title{color:#555;line-height:1.2;margin-bottom:8px;white-space:pre;pointer-events:none}
         .hud-midi{display:flex;align-items:center;gap:6px;margin-bottom:6px;pointer-events:auto}
         .hud-midi label{color:#888;white-space:nowrap}
         .hud-midi select{flex:1;background:rgba(0,0,0,0.6);color:#ccc;border:1px solid #444;font-family:monospace;font-size:11px;padding:1px 3px;outline:none}
@@ -46,6 +47,18 @@ export class Console {
     }
     this.container = document.createElement('div');
     this.container.id = 'hud';
+
+    const title = document.createElement('div');
+    title.className = 'hud-title';
+    title.textContent = [
+      ' ____                    ',
+      '|  _ \\ ___  _ __   __ _ ___',
+      '| |_) / _ \\| \'_ \\ / _` / __|',
+      '|  __/ (_) | | | | (_| \\__ \\',
+      '|_|   \\___/|_| |_|\\__, |___/',
+      '                   |___/    ',
+    ].join('\n');
+    this.container.appendChild(title);
 
     this.midiRow = document.createElement('div');
     this.midiRow.className = 'hud-midi';
@@ -75,9 +88,9 @@ export class Console {
     this.midiSelect.onchange = () => onChange(this.midiSelect.value);
   }
 
-  updateState(nodeCount: number, connCount: number, entropy: number, t: number): void {
+  updateState(nodeCount: number, connCount: number, entropy: number): void {
     this.stateLine.textContent =
-      `nodes: ${nodeCount}  connections: ${connCount}  entropy: ${entropy.toFixed(2)}  t: ${fmtTime(t)}`;
+      `nodes: ${nodeCount}  connections: ${connCount}  entropy: ${entropy.toFixed(2)}`;
   }
 
   logEvent(event: AppEvent, note: number): void {
