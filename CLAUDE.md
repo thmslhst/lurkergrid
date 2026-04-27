@@ -1,8 +1,8 @@
-# lurkergrid — CLAUDE.md
+# Pongs — CLAUDE.md
 
 ## Project Identity
 
-**lurkergrid** (package: `entropic-nodes`) is a tiny artistic PoC: a MIDI sequencer driven by emergent physics. A WebGPU 3D nodal system runs fullscreen and generates three categories of events. Each event fires a MIDI note. A minimal HUD console overlays the canvas and logs events + system state in real time.
+**Pongs** (package: `entropic-nodes`) is a tiny artistic PoC: a MIDI sequencer driven by emergent physics. A WebGPU 3D nodal system runs fullscreen and generates three categories of events. Each event fires a MIDI note. A minimal HUD console overlays the canvas and logs events + system state in real time.
 
 The app has no UI controls, no user interaction — it is a generative instrument that plays itself.
 
