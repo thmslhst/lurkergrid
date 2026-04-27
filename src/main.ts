@@ -4,14 +4,21 @@ import { Scene }         from './scene';
 import { SphereModel }   from './models/SphereModel';
 import { type GridConfig } from './grid';
 import { ModelSpawner }  from './models/ModelSpawner';
+import { EventBus }      from './events';
+import { MidiOutput }    from './midi';
+import { Console }       from './ui/Console';
 
 type vec4 = [number, number, number, number];
 const NODE_COLOR: vec4 = [0.72, 0.74, 0.78, 1.0];
 
-// Grid extent helpers (mirrors grid.ts logic without importing GridModel)
 function halfExtents(cfg: GridConfig): { halfW: number; halfH: number } {
   const halfH = cfg.cameraRadius * Math.tan(cfg.cameraFov / 2) * cfg.fillFactor;
   return { halfH, halfW: halfH * cfg.aspect };
+}
+
+function noteForX(x: number, baseNote: number, halfW: number): number {
+  const semitone = Math.min(11, Math.floor(((x + halfW) / (2 * halfW)) * 12));
+  return baseNote + semitone;
 }
 
 async function main(): Promise<void> {
@@ -27,7 +34,6 @@ async function main(): Promise<void> {
   const renderer = new Renderer();
   await renderer.init(canvas);
 
-  // Pool of 32 sphere instances shared across nodes
   const modelPool: SphereModel[] = [];
   for (let i = 0; i < 32; i++) {
     const m = new SphereModel();
@@ -45,10 +51,36 @@ async function main(): Promise<void> {
     fillFactor:   0.78,
   };
 
+  const bus     = new EventBus();
+  const midi    = new MidiOutput();
+  const hud     = new Console();
+
   const scene   = new Scene();
+  scene.setEventBus(bus);
+
   const { halfW, halfH } = halfExtents(gridCfg);
   const spawner = new ModelSpawner(renderer, scene, modelPool, NODE_COLOR);
+  spawner.setEventBus(bus);
   spawner.updateExtent(halfW, halfH);
+
+  midi.init().catch(() => {});
+
+  bus.on((event) => {
+    let note: number;
+    let x: number;
+    if (event.type === 'node:spawn') {
+      x = event.pos[0];
+      note = noteForX(x, 60, spawner.halfW);
+    } else if (event.type === 'node:connect') {
+      x = (event.posA[0] + event.posB[0]) / 2;
+      note = noteForX(x, 72, spawner.halfW);
+    } else {
+      x = event.pos[0];
+      note = noteForX(x, 48, spawner.halfW);
+    }
+    midi.playNote(note);
+    hud.logEvent(event, note);
+  });
 
   window.addEventListener('resize', () => {
     canvas.width  = window.innerWidth;
@@ -68,6 +100,7 @@ async function main(): Promise<void> {
     scene.tick(dt, now);
     spawner.tick(dt, camera);
     renderer.frame(scene, camera, now);
+    hud.updateState(scene.nodes.length, scene.connections.length, scene.entropy, now);
     requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);

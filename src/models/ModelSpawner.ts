@@ -1,9 +1,9 @@
-// ModelSpawner — probabilistic progressive node loading.
 import type { Camera }      from '../camera';
 import type { Renderer }    from '../renderer';
 import type { Scene }       from '../scene';
 import { Node }             from '../node';
 import type { SphereModel } from './SphereModel';
+import type { EventBus }    from '../events';
 
 export const MAX_NODES = 32;
 const SPAWN_INTERVAL_MS = 900;
@@ -14,8 +14,9 @@ const MAX_PROB          = 0.94;
 export class ModelSpawner {
   private timer   = 400;
   private seed    = 200;
-  private halfW   = 8;
+  halfW           = 8;
   private halfH   = 5;
+  private bus: EventBus | null = null;
 
   constructor(
     private renderer:  Renderer,
@@ -23,6 +24,8 @@ export class ModelSpawner {
     private modelPool: SphereModel[],
     private nodeColor: [number, number, number, number],
   ) {}
+
+  setEventBus(bus: EventBus): void { this.bus = bus; }
 
   updateExtent(halfW: number, halfH: number): void {
     this.halfW = halfW;
@@ -62,13 +65,15 @@ export class ModelSpawner {
       this.scene.removeNode(victim);
     }
 
-    const model = this.modelPool[this.seed % this.modelPool.length];
-    const node  = new Node(model, worldPos, [...this.nodeColor] as [number,number,number,number], this.seed * 1.7);
+    const nodeId = this.seed;
+    const model  = this.modelPool[this.seed % this.modelPool.length];
+    const node   = new Node(model, worldPos, [...this.nodeColor] as [number,number,number,number], this.seed * 1.7);
     this.seed++;
     node.init(this.renderer.device, this.renderer.nodeBindGroupLayout);
     node.isSpawnFlashing = true;
     setTimeout(() => { node.isSpawnFlashing = false; }, 100);
     this.scene.addNode(node);
     this.scene.triggerSpawnChaos(worldPos);
+    this.bus?.emit({ type: 'node:spawn', pos: worldPos, nodeId, t: performance.now() });
   }
 }

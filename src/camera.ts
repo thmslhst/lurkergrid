@@ -1,6 +1,5 @@
 import { perspectiveMatrix, lookAtMatrix, type vec3, type mat4 } from './math';
 
-const ORBIT_SPEED = 0.0003; // radians per ms — one full revolution ≈ 21 s
 
 export class Camera {
   private fov: number;

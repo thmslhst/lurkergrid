@@ -2,6 +2,7 @@ import type { Node } from './node';
 import { Connection, CONNECTION_RADIUS, FLOATS_PER_CONN } from './connection';
 import { integratePhysics } from './physics';
 import type { vec3 } from './math';
+import type { EventBus } from './events';
 
 const ENTROPY_RATE  = 0.00004;
 const ENTROPY_MAX   = 1.0;
@@ -12,10 +13,10 @@ export class Scene {
   connections: Connection[] = [];
   entropy = 0.0;
 
-  /** Keys of connections present last frame — used to detect new connections. */
   private prevConnKeys = new Set<string>();
-  /** connection key → flash expiry time (ms). Entries older than expiry are done. */
   private connFlashMap = new Map<string, number>();
+  private collisionDebounce = new Map<string, number>();
+  private bus: EventBus | null = null;
 
   // Wind: velocity force applied to all nodes each frame, decays exponentially
   windForce: vec3 = [0, 0, 0];
@@ -24,6 +25,8 @@ export class Scene {
 
   private readonly windDecay  = 0.0018; // exp decay rate per ms
   private readonly chaosDecay = 0.0010;
+
+  setEventBus(bus: EventBus): void { this.bus = bus; }
 
   addNode(node: Node): void {
     this.nodes.push(node);
@@ -90,6 +93,7 @@ export class Scene {
     for (const node of this.nodes) {
       integratePhysics(node.physics, dt, t, this.entropy, this.windForce);
     }
+    this.detectCollisions(t);
     this.buildConnections(t);
   }
 
@@ -104,6 +108,31 @@ export class Scene {
       count++;
     }
     return count;
+  }
+
+  private detectCollisions(t: number): void {
+    const THRESHOLD2 = 0.3 * 0.3;
+    const DEBOUNCE   = 500;
+    for (let i = 0; i < this.nodes.length; i++) {
+      for (let j = i + 1; j < this.nodes.length; j++) {
+        const pa = this.nodes[i].physics.pos;
+        const pb = this.nodes[j].physics.pos;
+        const dx = pa[0] - pb[0], dy = pa[1] - pb[1], dz = pa[2] - pb[2];
+        if (dx*dx + dy*dy + dz*dz < THRESHOLD2) {
+          const key = `${this.nodes[i].physics.seed}_${this.nodes[j].physics.seed}`;
+          const last = this.collisionDebounce.get(key) ?? -Infinity;
+          if (t - last >= DEBOUNCE) {
+            this.collisionDebounce.set(key, t);
+            this.bus?.emit({
+              type: 'node:collide',
+              pos: [(pa[0]+pb[0])/2, (pa[1]+pb[1])/2, (pa[2]+pb[2])/2],
+              nodeId: this.nodes[i].physics.seed,
+              t,
+            });
+          }
+        }
+      }
+    }
   }
 
   private buildConnections(t: number): void {
@@ -128,9 +157,14 @@ export class Scene {
           const key = `${this.nodes[i].physics.seed}_${this.nodes[j].physics.seed}`;
           currKeys.add(key);
 
-          // New connection this frame → start a 100 ms blue flash
           if (!this.prevConnKeys.has(key)) {
             this.connFlashMap.set(key, t + 100);
+            this.bus?.emit({
+              type: 'node:connect',
+              posA: [pa[0], pa[1], pa[2]],
+              posB: [pb[0], pb[1], pb[2]],
+              t,
+            });
           }
 
           const conn = new Connection(this.nodes[i], this.nodes[j]);
