@@ -4,9 +4,9 @@ import { integratePhysics } from './physics';
 import type { vec3 } from './math';
 import type { EventBus } from './events';
 
-const ENTROPY_RATE  = 0.00004;
+const ENTROPY_RATE  = 0.00001;
 const ENTROPY_MAX   = 1.0;
-const ENTROPY_DECAY = 0.00001;
+const ENTROPY_DECAY = 0.00004;
 
 export class Scene {
   nodes: Node[] = [];
