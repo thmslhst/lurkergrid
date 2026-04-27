@@ -63,7 +63,8 @@ async function main(): Promise<void> {
   spawner.setEventBus(bus);
   spawner.updateExtent(halfW, halfH);
 
-  midi.init().catch(() => {});
+  await midi.init().catch(() => {});
+  hud.setMidiOutputs(midi.outputs, midi.selectedId, id => midi.selectOutput(id));
 
   bus.on((event) => {
     let note: number;

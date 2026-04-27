@@ -23,6 +23,8 @@ function fmtCoord(n: number): string { return (n >= 0 ? ' ' : '') + n.toFixed(1)
 
 export class Console {
   private container: HTMLElement;
+  private midiRow: HTMLElement;
+  private midiSelect: HTMLSelectElement;
   private stateLine: HTMLElement;
   private logContainer: HTMLElement;
 
@@ -31,9 +33,12 @@ export class Console {
       const style = document.createElement('style');
       style.id = 'hud-styles';
       style.textContent = `
-        #hud{position:fixed;top:12px;left:12px;width:320px;max-height:220px;overflow:hidden;background:rgba(0,0,0,0.55);font-family:monospace;font-size:11px;color:#ccc;padding:8px 10px;pointer-events:none}
-        .hud-state{color:#888;margin-bottom:6px;white-space:nowrap}
-        .hud-log{display:flex;flex-direction:column}
+        #hud{position:fixed;top:12px;left:12px;width:320px;max-height:260px;overflow:hidden;background:rgba(0,0,0,0.55);font-family:monospace;font-size:11px;color:#ccc;padding:8px 10px}
+        .hud-midi{display:flex;align-items:center;gap:6px;margin-bottom:6px;pointer-events:auto}
+        .hud-midi label{color:#888;white-space:nowrap}
+        .hud-midi select{flex:1;background:rgba(0,0,0,0.6);color:#ccc;border:1px solid #444;font-family:monospace;font-size:11px;padding:1px 3px;outline:none}
+        .hud-state{color:#888;margin-bottom:6px;white-space:nowrap;pointer-events:none}
+        .hud-log{display:flex;flex-direction:column;pointer-events:none}
         .hud-line{white-space:nowrap;line-height:1.5}
         .hud-spawn{color:#7cf}.hud-connect{color:#cf7}.hud-collide{color:#f97}
       `;
@@ -41,13 +46,33 @@ export class Console {
     }
     this.container = document.createElement('div');
     this.container.id = 'hud';
+
+    this.midiRow = document.createElement('div');
+    this.midiRow.className = 'hud-midi';
+    const label = document.createElement('label');
+    label.textContent = 'MIDI';
+    this.midiSelect = document.createElement('select');
+    this.midiSelect.innerHTML = '<option value="">— no devices —</option>';
+    this.midiRow.appendChild(label);
+    this.midiRow.appendChild(this.midiSelect);
+
     this.stateLine = document.createElement('div');
     this.stateLine.className = 'hud-state';
     this.logContainer = document.createElement('div');
     this.logContainer.className = 'hud-log';
+
+    this.container.appendChild(this.midiRow);
     this.container.appendChild(this.stateLine);
     this.container.appendChild(this.logContainer);
     document.body.appendChild(this.container);
+  }
+
+  setMidiOutputs(outputs: MIDIOutput[], selectedId: string | null, onChange: (id: string) => void): void {
+    this.midiSelect.innerHTML = outputs.length
+      ? outputs.map(o => `<option value="${o.id}">${o.name ?? o.id}</option>`).join('')
+      : '<option value="">— no devices —</option>';
+    if (selectedId) this.midiSelect.value = selectedId;
+    this.midiSelect.onchange = () => onChange(this.midiSelect.value);
   }
 
   updateState(nodeCount: number, connCount: number, entropy: number, t: number): void {

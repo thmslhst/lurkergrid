@@ -1,5 +1,6 @@
 export class MidiOutput {
   private output: MIDIOutput | null = null;
+  private allOutputs: MIDIOutput[] = [];
 
   async init(): Promise<void> {
     if (!navigator.requestMIDIAccess) {
@@ -8,11 +9,24 @@ export class MidiOutput {
     }
     try {
       const access = await navigator.requestMIDIAccess();
-      access.outputs.forEach(out => { if (!this.output) this.output = out; });
-      if (!this.output) console.warn('No MIDI output devices found');
+      const outputs: MIDIOutput[] = [];
+      access.outputs.forEach(o => outputs.push(o));
+      this.allOutputs = outputs;
+      this.output = this.allOutputs.find(o => o.name?.toLowerCase().includes('iac'))
+        ?? this.allOutputs[0]
+        ?? null;
+      if (this.output) console.log(`MIDI output: "${this.output.name}"`);
+      else console.warn('No MIDI output devices found');
     } catch {
       console.warn('MIDI access denied');
     }
+  }
+
+  get outputs(): MIDIOutput[] { return this.allOutputs; }
+  get selectedId(): string | null { return this.output?.id ?? null; }
+
+  selectOutput(id: string): void {
+    this.output = this.allOutputs.find(o => o.id === id) ?? this.output;
   }
 
   noteOn(note: number, velocity = 80, channel = 1): void {
