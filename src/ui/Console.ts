@@ -40,7 +40,7 @@ export class Console {
         .hud-state{color:#888;margin-bottom:6px;white-space:nowrap;pointer-events:none}
         .hud-log{display:flex;flex-direction:column;pointer-events:none}
         .hud-line{white-space:nowrap;line-height:1.5}
-        .hud-spawn{color:#7cf}.hud-connect{color:#cf7}.hud-collide{color:#f97}
+        .hud-spawn{color:#ffff00}.hud-connect{color:#338cff}.hud-collide{color:#ff4444}
       `;
       document.head.appendChild(style);
     }

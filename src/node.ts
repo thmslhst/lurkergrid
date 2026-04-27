@@ -19,6 +19,8 @@ export class Node {
   alphaScale = 1.0;
   /** When true, renders yellow instead of the node's normal color. */
   isSpawnFlashing = false;
+  /** When true, renders red instead of the node's normal color. */
+  isCollideFlashing = false;
   /** Number of active connections — updated by Scene.buildConnections() each frame. */
   connectionCount = 0;
 
@@ -55,6 +57,8 @@ export class Node {
     data.set(this.worldMatrix(), 0);
     if (this.isSpawnFlashing) {
       data.set([1, 1, 0, this.color[3] * this.alphaScale], 16);
+    } else if (this.isCollideFlashing) {
+      data.set([1, 0, 0, this.color[3] * this.alphaScale], 16);
     } else {
       data.set(this.color, 16);
       data[19] = this.color[3] * this.alphaScale;

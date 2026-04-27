@@ -123,6 +123,10 @@ export class Scene {
           const last = this.collisionDebounce.get(key) ?? -Infinity;
           if (t - last >= DEBOUNCE) {
             this.collisionDebounce.set(key, t);
+            const ni = this.nodes[i], nj = this.nodes[j];
+            ni.isCollideFlashing = true;
+            nj.isCollideFlashing = true;
+            setTimeout(() => { ni.isCollideFlashing = false; nj.isCollideFlashing = false; }, 300);
             this.bus?.emit({
               type: 'node:collide',
               pos: [(pa[0]+pb[0])/2, (pa[1]+pb[1])/2, (pa[2]+pb[2])/2],
