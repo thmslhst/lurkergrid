@@ -101,7 +101,7 @@ async function main(): Promise<void> {
     scene.tick(dt, now);
     spawner.tick(dt, camera);
     renderer.frame(scene, camera, now);
-    hud.updateState(scene.nodes.length, scene.connections.length, scene.entropy, now);
+    hud.updateState(scene.nodes.length, scene.connections.length, scene.entropy);
     requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);
